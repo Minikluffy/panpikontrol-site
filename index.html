@@ -2,294 +2,337 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.github.com http://192.168.*:* http://10.*:* http://127.0.0.1:* http://localhost:* https://*.trycloudflare.com; frame-ancestors 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data: http://192.168.*:* http://10.*:* http://127.0.0.1:* http://localhost:* https://*.trycloudflare.com; connect-src 'self' https://api.github.com http://192.168.*:* http://10.*:* http://127.0.0.1:* http://localhost:* https://*.trycloudflare.com; frame-ancestors 'none'; base-uri 'none'; form-action 'none'">
 <title>E — Kişisel Merkez</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  :root{--bg:#07090d;--panel:#0d1117;--panel2:#131a23;--line:#1f2a38;--acc:#3ddc84;--acc2:#58a6ff;--txt:#e6edf3;--dim:#8b98a5;--warn:#f85149;--amber:#d29922}
-  body{background:var(--bg);color:var(--txt);font-family:'Consolas','Courier New',monospace;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-  .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;max-width:760px;width:100%}
-  .logo{font-size:20px;font-weight:700;letter-spacing:2px;color:var(--acc);margin-bottom:4px}
-  .sub{color:var(--dim);font-size:12px;margin-bottom:18px}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#05070b;--bg2:#0a0e15;--panel:#10151f;--panel2:#161d2b;--line:#1e2a3d;
+    --acc:#34d97b;--acc2:#5aa2ff;--amber:#e0a62e;--warn:#f2555a;
+    --txt:#e8eef7;--dim:#8d99ab;
+    --r:16px;
+  }
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 600px at 50% -10%,#0d1626 0%,var(--bg) 55%);color:var(--txt);font-family:'Segoe UI',system-ui,-apple-system,Roboto,sans-serif;min-height:100vh}
   .hidden{display:none!important}
-  /* kapı */
-  #gate{max-width:380px}
-  #gate input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:12px;border-radius:8px;font-family:inherit;font-size:18px;margin:10px 0 14px;text-align:center;letter-spacing:6px}
-  #gate .err{color:var(--warn);font-size:11px;min-height:14px}
-  #gate .hint{color:var(--dim);font-size:10px;margin-top:12px;text-align:center}
-  .btn{background:var(--acc);color:#04140b;border:none;padding:9px 16px;border-radius:8px;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer;text-decoration:none;display:inline-block}
-  .btn:hover{filter:brightness(1.1)}
-  .btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--line)}
-  .btn.blue{background:var(--acc2);color:#04101e}
-  .btn.sm{padding:6px 10px;font-size:11px}
-  .btn.danger{background:transparent;color:var(--warn);border:1px solid var(--warn)}
-  /* kartlar */
-  .card{display:flex;gap:12px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px;flex-wrap:wrap}
-  .card .ic{font-size:26px}
-  .card .t{flex:1;min-width:170px}
-  .card .t b{display:block;font-size:13px}
-  .card .t span{font-size:11px;color:var(--dim)}
-  h2{font-size:12px;letter-spacing:3px;color:var(--acc2);margin:22px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
-  h2:first-of-type{margin-top:6px}
-  .meta{font-size:10px;color:var(--dim);margin-top:16px;line-height:1.7}
-  .pill{font-size:9px;padding:2px 7px;border-radius:10px;border:1px solid var(--line);color:var(--dim)}
+  ::placeholder{color:#46536b}
+
+  /* ─── şifre kapısı ─── */
+  #gate{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:14px}
+  .g-logo{width:84px;height:84px;border-radius:26px;background:linear-gradient(135deg,#0f3d24,#0a2530);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 12px 40px rgba(52,217,123,.12)}
+  .g-title{font-size:22px;font-weight:800;letter-spacing:1px}
+  .g-sub{font-size:12px;color:var(--dim)}
+  #gate input{width:min(320px,88vw);background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:15px;border-radius:14px;font-family:inherit;font-size:22px;text-align:center;letter-spacing:8px;outline:none;transition:border .2s}
+  #gate input:focus{border-color:var(--acc)}
+  #gate .err{color:var(--warn);font-size:12px;min-height:16px;text-align:center}
+  .g-btn{width:min(320px,88vw);background:linear-gradient(135deg,#2ec46e,#1f9e5a);color:#04140b;border:none;padding:15px;border-radius:14px;font-family:inherit;font-weight:800;font-size:15px;letter-spacing:2px;cursor:pointer}
+  .g-btn:active{transform:scale(.98)}
+  .g-hint{font-size:10px;color:var(--dim)}
+
+  /* ─── uygulama kabuğu ─── */
+  .app{max-width:600px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(16,21,31,.6),transparent 120px)}
+  header{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;position:sticky;top:0;z-index:5;background:linear-gradient(180deg,var(--bg) 75%,transparent)}
+  .h-logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#0f3d24,#0a2530);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:19px}
+  .h-name{font-size:15px;font-weight:800;letter-spacing:.5px}
+  .h-sub{font-size:10px;color:var(--dim)}
+  .spacer{flex:1}
+  .pill{font-size:9px;padding:3px 9px;border-radius:20px;border:1px solid var(--line);color:var(--dim);white-space:nowrap}
   .pill.ok{color:var(--acc);border-color:var(--acc)}
   .pill.warn{color:var(--amber);border-color:var(--amber)}
-  /* uygulama sayfaları */
-  textarea{width:100%;min-height:110px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:10px;border-radius:8px;font-family:inherit;font-size:12px;resize:vertical}
-  input.txt{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:10px;border-radius:8px;font-family:inherit;font-size:12px}
-  .note{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px}
-  .task{display:flex;gap:8px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px;margin-bottom:7px}
-  .task .tt{flex:1;font-size:12px}
-  .task.done .tt{text-decoration:line-through;color:var(--dim)}
-  .row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
-  .row>*{flex:1}
-  .nt{font-size:9px;color:var(--dim);margin-bottom:5px;display:flex;justify-content:space-between}
-  .nb{font-size:12px;white-space:pre-wrap;word-break:break-word}
-  .sec-title{font-size:13px;color:var(--acc);margin-bottom:8px}
-  .kv{font-size:11px;color:var(--dim);line-height:1.9}
+  .pill.err{color:var(--warn);border-color:var(--warn)}
+  main{flex:1;overflow-y:auto;padding:8px 14px 96px;scrollbar-width:thin}
+  .pg{animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ─── alt gezgin (telefon gibi) ─── */
+  nav.tabs{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:600px;display:flex;background:rgba(10,14,21,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:8px 6px calc(10px + env(safe-area-inset-bottom));z-index:10}
+  nav.tabs button{flex:1;background:none;border:none;color:var(--dim);font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;cursor:pointer;border-radius:12px;font-size:10px;font-weight:600}
+  nav.tabs button .ic{font-size:21px;filter:grayscale(1) opacity(.65);transition:.2s}
+  nav.tabs button.active{color:var(--acc)}
+  nav.tabs button.active .ic{filter:none;transform:translateY(-2px)}
+  nav.tabs button:active{transform:scale(.95)}
+
+  /* ─── kartlar ─── */
+  .sec{font-size:11px;font-weight:800;letter-spacing:2.5px;color:var(--dim);margin:20px 4px 10px;display:flex;align-items:center;gap:8px}
+  .sec::after{content:'';flex:1;height:1px;background:var(--line)}
+  .card{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:13px;margin-bottom:9px;transition:border .15s,transform .1s}
+  .card:active{transform:scale(.99)}
+  .card .ic{width:42px;height:42px;min-width:42px;border-radius:13px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:20px}
+  .card .t{flex:1;min-width:0}
+  .card .t b{display:block;font-size:13.5px;margin-bottom:2px}
+  .card .t span{font-size:11px;color:var(--dim);line-height:1.45;display:block}
+  .btn{background:var(--panel2);color:var(--txt);border:1px solid var(--line);padding:9px 14px;border-radius:12px;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer;text-decoration:none;display:inline-block;white-space:nowrap;transition:.15s}
+  .btn:active{transform:scale(.96)}
+  .btn.green{background:linear-gradient(135deg,#2ec46e,#1f9e5a);border:none;color:#04140b}
+  .btn.blue{background:linear-gradient(135deg,#3f8cff,#2a6ade);border:none;color:#fff}
+  .btn.danger{background:transparent;color:var(--warn);border:1px solid var(--warn)}
+  .btn.sm{padding:6px 10px;font-size:11px;border-radius:10px}
+  .kv{font-size:11px;color:var(--dim);line-height:1.8}
   .kv b{color:var(--txt)}
+  .row{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap;align-items:center}
+  .row>*{flex:1}
+  .row>.auto{flex:0 0 auto}
+  textarea,input.txt{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:12px 14px;border-radius:14px;font-family:inherit;font-size:13px;outline:none;transition:border .2s}
+  textarea{min-height:110px;resize:vertical;line-height:1.6}
+  textarea:focus,input.txt:focus{border-color:var(--acc)}
+  .note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .nt{font-size:9px;color:var(--dim);margin-bottom:5px;display:flex;justify-content:space-between;gap:8px}
+  .nb{font-size:12.5px;white-space:pre-wrap;word-break:break-word;line-height:1.55}
+  .task{display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:7px}
+  .task .tt{flex:1;font-size:12.5px;line-height:1.45}
+  .task.done .tt{text-decoration:line-through;color:var(--dim)}
+  .meta{font-size:9.5px;color:var(--dim);margin-top:18px;line-height:1.8;border-top:1px solid var(--line);padding-top:12px}
   a.lnk{color:var(--acc2);text-decoration:none}
-  ::placeholder{color:#4a5568}
+  .kv-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+
+  /* ─── A5 ekran görüntüsü ─── */
+  #a5sc-wrap{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#000;touch-action:none;cursor:crosshair}
+  #a5sc-wrap img{width:100%;display:block;min-height:200px;object-fit:contain}
+  .sc-keys{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .sc-keys button{flex:1;min-width:52px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:9px 0;font-size:16px;cursor:pointer}
+  .sc-keys button:active{background:var(--acc);color:#04140b}
+  .sc-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:12px;background:rgba(0,0,0,.55);text-align:center;padding:20px}
+
+  /* ─── mesaj kutusu ─── */
+  .msg-status{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim);margin:8px 2px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--amber)}
+  .dot.on{background:var(--acc);box-shadow:0 0 8px var(--acc)}
+  .dot.off{background:var(--warn)}
 </style>
 </head>
 <body>
 
   <!-- ═══ ŞİFRE KAPISI ═══ -->
-  <div id="gate" class="box">
-    <div class="logo">▚▞ E·MERKEZ</div>
-    <div class="sub">kişisel alan · şifreli kapı</div>
+  <div id="gate">
+    <div class="g-logo">▚▞</div>
+    <div class="g-title">E·MERKEZ</div>
+    <div class="g-sub">kişisel alan · şifreli kapı</div>
     <input id="pw" type="password" placeholder="••••••••" autocomplete="off" inputmode="numeric">
     <div class="err" id="err"></div>
-    <button class="btn" style="width:100%" id="go">GİRİŞ</button>
-    <div class="hint">PBKDF2-SHA256 · 5 hatalı denemede 15 dk kilit</div>
+    <button class="g-btn" id="go">GİRİŞ</button>
+    <div class="g-hint">PBKDF2-SHA256 · 5 hatalı denemede 15 dk kilit</div>
   </div>
 
-  <!-- ═══ ANA SAYFA ═══ -->
-  <div id="main" class="box hidden">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+  <!-- ═══ UYGULAMA KABUĞU ═══ -->
+  <div id="main" class="app hidden">
+    <header>
+      <div class="h-logo">▚▞</div>
       <div>
-        <div class="logo">▚▞ E·MERKEZ</div>
-        <div class="sub">emin'in kişisel merkezi · <span id="clock"></span></div>
+        <div class="h-name">E·MERKEZ</div>
+        <div class="h-sub" id="clock">—</div>
       </div>
-      <button class="btn ghost sm" id="lock">🔒 KİLİTLE</button>
-    </div>
+      <div class="spacer"></div>
+      <button class="btn sm" id="lock">🔒</button>
+    </header>
 
-    <h2>💻 BİLGİSAYAR İNDİRMELERİ</h2>
-    <div class="card">
-      <div class="ic">🖥️</div>
-      <div class="t"><b>PanpiKontrol Setup</b><span>Windows 10/11 · tek tık kurulum · Node gömülü · otomatik başlatma + QR</span></div>
-      <a class="btn" href="dl/PanpiKontrol-Setup.exe" download>SETUP.EXE</a>
-    </div>
-    <div class="card">
-      <div class="ic">📦</div>
-      <div class="t"><b>PanpiKontrol Portable</b><span>kurulumsuz zip · installer\install.ps1'i çalıştır</span></div>
-      <a class="btn ghost" href="dl/PanpiKontrol-Setup.zip" download>SETUP.ZIP</a>
-    </div>
-    <div class="kv" style="margin-top:2px">
-      kurulumdan sonra: masaüstündeki <b>PanpiKontrol Başlat</b>'a tıkla → QR'yi telefon uygulamasından <b>KOD TARA</b> ile okut → bağlanır.
-      ekran + fare + klavye + mikrofon + dosya aktarımı, hepsi <b>uçtan uca şifreli</b> · en fazla <b>2 cihaz</b> · ev dışından <b>tünel</b> üzerinden.
-    </div>
-    <div class="card">
-      <div class="ic">🔗</div>
-      <div class="t"><b>Bu adresi telefona gönder</b><span>telefon tarayıcısına aynı adresi yaz ya da linki paylaş</span></div>
-      <button class="btn ghost" id="cpy">ADRESİ KOPYALA</button>
-    </div>
+    <main>
+      <!-- ═══ ANA ═══ -->
+      <section id="pg-ana" class="pg">
+        <div class="sec">💻 BİLGİSAYAR</div>
+        <div class="card">
+          <div class="ic">🖥️</div>
+          <div class="t"><b>PanpiKontrol Setup</b><span>Windows 10/11 · tek tık kurulum · Node gömülü · otomatik başlatma + QR</span></div>
+          <a class="btn green sm" href="dl/PanpiKontrol-Setup.exe" download>SETUP.EXE</a>
+        </div>
+        <div class="card">
+          <div class="ic">📦</div>
+          <div class="t"><b>Portable Zip</b><span>kurulumsuz · installer\install.ps1'i çalıştır</span></div>
+          <a class="btn sm" href="dl/PanpiKontrol-Setup.zip" download>ZIP</a>
+        </div>
+        <div class="kv" style="margin:2px 4px">kurulumdan sonra masaüstündeki <b>PanpiKontrol Başlat</b> → telefondan <b>KOD TARA</b> ile QR okut → ekran + fare + klavye + mikrofon + dosya, <b>uçtan uca şifreli</b> · en fazla <b>2 cihaz</b> · ev dışı <b>tünel</b>.</div>
 
-    <h2>📱 UYGULAMALAR</h2>
-    <div class="card">
-      <div class="ic">📝</div>
-      <div class="t"><b>Notlar</b><span>hızlı not defteri · cihazında saklanır, sunucuya gitmez</span></div>
-      <a class="btn blue" href="#/notlar">AÇ</a>
-    </div>
-    <div class="card">
-      <div class="ic">🔐</div>
-      <div class="t"><b>Şifreli Kasa</b><span>şifreler/bilgiler AES-256-GCM ile şifreli saklanır · kasa şifresi site şifresinden bağımsız</span></div>
-      <a class="btn blue" href="#/kasa">AÇ</a>
-    </div>
-    <div class="card">
-      <div class="ic">🎛️</div>
-      <div class="t"><b>PanpiKontrol Telefon Arayüzü</b><span>PC bağlıyken: ekran izleme + uzaktan kontrol (web)</span></div>
-      <a class="btn ghost" href="app/" target="_blank">AÇ</a>
-    </div>
-    <div class="card">
-      <div class="ic">📟</div>
-      <div class="t"><b>A5 Hub</b><span>ev sunucusu (Samsung A5/Termux): PC keşfi + güvenlik olayları + WOL</span></div>
-      <a class="btn blue" href="#/a5">AÇ</a>
-    </div>
-    <div class="card">
-      <div class="ic">➕</div>
-      <div class="t"><b>Yeni uygulamalar</b><span>bu alana yapay zeka ile yazdığın uygulamalar eklenecek</span></div>
-      <span class="pill">yakında</span>
-    </div>
+        <div class="sec">📱 UYGULAMALAR</div>
+        <div class="card">
+          <div class="ic">📝</div>
+          <div class="t"><b>Notlar</b><span>hızlı not defteri · bu cihazda saklanır</span></div>
+          <a class="btn blue sm" href="#/notlar">AÇ</a>
+        </div>
+        <div class="card">
+          <div class="ic">🖥️📱</div>
+          <div class="t"><b>PanpiKontrol Telefon Arayüzü</b><span>PC bağlıyken: ekran izleme + uzaktan kontrol</span></div>
+          <a class="btn sm" href="app/" target="_blank">AÇ</a>
+        </div>
+        <div class="card">
+          <div class="ic">📟</div>
+          <div class="t"><b>A5 Hub + Ekran</b><span>ev sunucusu (Samsung A5): PC keşfi · güvenlik olayları · <b>A5 ekranını izle/kontrol et</b></span></div>
+          <a class="btn blue sm" href="#/a5">AÇ</a>
+        </div>
+        <div class="card">
+          <div class="ic">✉️</div>
+          <div class="t"><b>Mesaj Kutusu</b><span>uzaktayken yapay zekâya prompt gönder · PC her an kontrol eder</span></div>
+          <a class="btn green sm" href="#/mesaj">AÇ</a>
+        </div>
 
-    <h2>🤖 YAPAY ZEKÂ PANELİ</h2>
-    <div class="card">
-      <div class="ic">✨</div>
-      <div class="t"><b>Görev Panosu</b><span>yapay zekaya verilecek fikir/özellik listesi · her "devam et"te sıradaki göreve geç</span></div>
-      <a class="btn" href="#/ai">AÇ</a>
-    </div>
-    <div class="card">
-      <div class="ic">🔐</div>
-      <div class="t"><b>Promptları güvenle sakla</b><span>API anahtarı / token gerektiren işler: anahtarları bu siteye yazma — panoda "token'lı" diye not düş, anahtarı ayrıca ilet</span></div>
-    </div>
+        <div class="sec">🤖 YAPAY ZEKÂ</div>
+        <div class="card">
+          <div class="ic">✨</div>
+          <div class="t"><b>Görev Panosu</b><span>fikir/özellik listesi · GitHub bulut senkronu · her "devam et"te sıradaki görev</span></div>
+          <a class="btn green sm" href="#/ai">AÇ</a>
+        </div>
 
-    <h2>🛡️ SİSTEM</h2>
-    <div class="card">
-      <div class="ic">🩺</div>
-      <div class="t"><b>Sistem Durumu</b><span>ajan + hub + tünel — tek bakışta her şey çalışıyor mu</span></div>
-      <a class="btn blue" href="#/durum">AÇ</a>
-    </div>
-    <div class="card">
-      <div class="ic">📡</div>
-      <div class="t"><b>PanpiKontrol durum</b><span>ajan sürüm + güncelleme akışı otomatik · sürüm bilgisi için panpistart penceresine bak</span></div>
-      <a class="btn ghost sm" href="version.json" target="_blank">version.json</a>
-    </div>
-    <div class="card">
-      <div class="ic">🗄️</div>
-      <div class="t"><b>Samsung A5 (sunucu) — plan</b><span>ev ağındaki A5: güvenlik olayları + cihazlar arası köprü için ayrılacak</span></div>
-      <span class="pill warn">plan aşaması</span>
-    </div>
+        <div class="sec">🛡️ SİSTEM</div>
+        <div class="card">
+          <div class="ic">🩺</div>
+          <div class="t"><b>Sistem Durumu</b><span>PC ajanı + A5 hub + tünel — tek bakışta</span></div>
+          <a class="btn blue sm" href="#/durum">AÇ</a>
+        </div>
+        <div class="card">
+          <div class="ic">🔗</div>
+          <div class="t"><b>Bu adresi telefona gönder</b><span>aynı adresi telefon tarayıcısına yaz ya da paylaş</span></div>
+          <button class="btn sm" id="cpy">ADRESİ KOPYALA</button>
+        </div>
+        <div class="meta">
+          🔒 GitHub Pages · şifreli kapı (PBKDF2) · izleme yok · 15 dk boşta + sekme değişince otomatik kilit<br>
+          📥 indirme dosyaları gizli yolda: <span style="color:var(--acc)">/dl/…</span> — sayfayı bilen değil, şifreyi bilen görür
+        </div>
+      </section>
 
-    <div class="meta">
-      🔒 bu site: GitHub Pages · şifrelenmiş kapı (PBKDF2) · tarayıcıda çalışır, izleme yok · 15 dk boşta + sekme değişince otomatik kilitlenir<br>
-      📥 indirme dosyaları gizli yolda: <span style="color:var(--acc)">/dl/…</span> · sayfa adresini bilen değil, şifreyi bilen görür
-    </div>
-  </div>
+      <!-- ═══ NOTLAR ═══ -->
+      <section id="pg-notlar" class="pg hidden">
+        <div class="kv-row"><div class="sec" style="margin:8px 0">📝 NOTLAR</div><button class="btn sm" id="notlar-exp">⬇ YERELE AL</button></div>
+        <textarea id="note-txt" placeholder="not yaz… (Ctrl+Enter kaydeder)"></textarea>
+        <div class="row"><button class="btn green" id="note-save">KAYDET</button></div>
+        <div id="note-list"></div>
+        <div class="meta">notlar sadece bu tarayıcıda (localStorage) — sunucuya gönderilmez.</div>
+      </section>
 
-  <!-- ═══ UYGULAMA: NOTLAR ═══ -->
-  <div id="pg-notlar" class="box hidden">
-    <div class="row" style="align-items:center">
-      <div class="sec-title" style="flex:1">📝 NOTLAR</div>
-      <button class="btn ghost sm" id="notlar-exp">⬇ YERELE AL</button>
-      <a class="btn ghost sm" href="#/">← GERİ</a>
-    </div>
-    <textarea id="note-txt" placeholder="not yaz… (Ctrl+Enter kaydeder)"></textarea>
-    <div class="row"><button class="btn" id="note-save">KAYDET</button></div>
-    <div id="note-list"></div>
-    <div class="meta">notlar sadece bu tarayıcıda (localStorage) — sunucuya gönderilmez. başka cihaza geçiş için "YERELE AL" ile .txt indir.</div>
-  </div>
+      <!-- ═══ GÖREV PANOSU ═══ -->
+      <section id="pg-ai" class="pg hidden">
+        <div class="sec" style="margin:8px 0">🤖 GÖREV PANOSU</div>
+        <div class="kv" style="margin-bottom:8px">yapay zekâya şunu yaz: <b>"panoyu oku, sıradaki planlandı görevi yap"</b> — durum: planlandı → yapılıyor → bitti (üstüne tıkla).</div>
+        <div class="card" style="cursor:pointer" id="cl-head">
+          <div class="ic">☁️</div>
+          <div class="t"><b>Bulut senkronu</b><span>GitHub'da saklanır · tüm cihazlardan aynı liste</span></div>
+          <span class="pill" id="cl-state">kapalı</span>
+        </div>
+        <div id="cl-panel" class="hidden" style="margin-bottom:10px">
+          <input class="txt" id="cl-token" type="password" placeholder="GitHub token (Contents: Read and Write yetkili)" autocomplete="off">
+          <div class="row">
+            <button class="btn green" id="cl-connect">BAĞLAN</button>
+            <button class="btn sm" id="cl-pull">ÇEK</button>
+            <button class="btn sm" id="cl-push">GÖNDER</button>
+            <button class="btn danger" id="cl-off">KOPAR</button>
+          </div>
+          <div class="kv" id="cl-info">token sadece bu cihazda saklanır (localStorage) · liste data/tasks.json'da tutulur</div>
+        </div>
+        <input class="txt" id="task-inp" placeholder="yeni görev / fikir…">
+        <div class="row">
+          <button class="btn green" id="task-add">+ EKLE</button>
+          <button class="btn sm" id="task-clear">BİTTENLERİ TEMİZLE</button>
+        </div>
+        <div id="task-list"></div>
+      </section>
 
-  <!-- ═══ UYGULAMA: ŞİFRELİ KASA ═══ -->
-  <div id="pg-kasa" class="box hidden">
-    <div class="row" style="align-items:center">
-      <div class="sec-title" style="flex:1">🔐 ŞİFRELİ KASA</div>
-      <a class="btn ghost sm" href="#/">← GERİ</a>
-    </div>
-    <div id="kasa-lock-view">
-      <div class="kv" style="margin-bottom:10px">kasa şifresi site şifresinden <b>bağımsız</b> · kaybedersen içerik kurtarılamaz — bu iyi bir şey.</div>
-      <input class="txt" id="kasa-pw" type="password" placeholder="KASA ŞİFRESİ" autocomplete="off">
-      <div class="row"><button class="btn" id="kasa-unlock">KİLİDİ AÇ / OLUŞTUR</button></div>
-      <div id="kasa-err" style="color:var(--warn);font-size:11px;min-height:14px"></div>
-      <div class="kv">AES-256-GCM · PBKDF2-SHA256 200.000 tur · anahtar sadece bellekte · localStorage'da yalnızca şifreli metin durur</div>
-    </div>
-    <div id="kasa-main" class="hidden">
-      <div class="row" style="align-items:center">
-        <div class="kv" style="flex:1"><b id="kasa-count">0</b> kayıt şifreli saklanıyor</div>
-        <button class="btn ghost sm" id="kasa-lockbtn">🔒 KİLİTLE</button>
-        <button class="btn danger sm" id="kasa-wipe">TÜMÜNÜ SİL</button>
-      </div>
-      <input class="txt" id="kasa-name" placeholder="başlık (örn: wifi şifresi)">
-      <textarea id="kasa-txt" placeholder="gizli içerik…"></textarea>
-      <div class="row"><button class="btn" id="kasa-save">ŞİFRELE VE SAKLA</button></div>
-      <div class="row">
-        <button class="btn ghost" id="kasa-export">⬇ YEDEK AL (.json)</button>
-        <button class="btn ghost" id="kasa-import">⬆ YEDEK YÜKLE</button>
-        <input type="file" id="kasa-file" accept=".json,application/json" style="display:none">
-      </div>
-      <div class="kv" id="kasa-xmsg" style="min-height:14px">yedek: tüm kayıtlar tek .json dosyasında, kasa şifrenle şifreli — başka cihazda aynı kasa şifresiyle yüklersin</div>
-      <div id="kasa-list"></div>
-    </div>
-  </div>
+      <!-- ═══ A5 HUB + EKRAN ═══ -->
+      <section id="pg-a5" class="pg hidden">
+        <div class="sec" style="margin:8px 0">📟 A5 HUB</div>
+        <div id="a5-login">
+          <div class="kv" style="margin-bottom:10px">A5'e kurulum: <a class="lnk" href="dl/panpi-hub.zip" download>panpi-hub.zip</a> indir → Termux'ta <b>bash termux-kur.sh</b> → ekrandaki token'ı buraya gir.</div>
+          <input class="txt" id="a5-host" placeholder="A5 adresi (örn: 192.168.1.50:8443)" inputmode="url" autocapitalize="off" autocomplete="off">
+          <input class="txt" id="a5-token" type="password" placeholder="HUB TOKEN" autocomplete="off" style="margin-top:8px">
+          <div class="row"><button class="btn green" id="a5-connect">BAĞLAN</button></div>
+          <div class="kv" id="a5-info">adres + token sadece bu cihazda saklanır</div>
+        </div>
+        <div id="a5-main" class="hidden">
+          <div class="kv-row">
+            <div class="kv" id="a5-status" style="flex:1">bağlanıyor…</div>
+            <button class="btn sm" id="a5-refresh">YENİLE</button>
+            <button class="btn danger sm" id="a5-disconnect">KOPAR</button>
+          </div>
+          <div class="card" style="margin-top:8px">
+            <div class="ic">💻</div>
+            <div class="t"><b>Kayıtlı PC'ler</b><span id="a5-pcs">—</span></div>
+          </div>
+          <div class="card">
+            <div class="ic">⚡</div>
+            <div class="t"><b>PC'yi uyandır (WOL)</b><span>LAN'dayken çalışır · MAC: <span id="a5-mac-show">—</span></span></div>
+            <button class="btn sm" id="a5-wol">UYANDIR</button>
+          </div>
 
-  <!-- ═══ UYGULAMA: A5 HUB ═══ -->
-  <div id="pg-a5" class="box hidden">
-    <div class="row" style="align-items:center">
-      <div class="sec-title" style="flex:1">📟 A5 HUB</div>
-      <a class="btn ghost sm" href="#/">← GERİ</a>
-    </div>
-    <div id="a5-login">
-      <div class="kv" style="margin-bottom:10px">A5'e kurulum: <a class="lnk" href="dl/panpi-hub.zip" download>panpi-hub.zip</a> indir → Termux'ta <b>bash termux-kur.sh</b> → ekranda yazan token'ı buraya gir. Detaylı plan: <a class="lnk" href="dl/PLAN.md" download>PLAN.md</a></div>
-      <input class="txt" id="a5-host" placeholder="A5 adresi (örn: 192.168.1.50:8443)" inputmode="url" autocapitalize="off" autocomplete="off">
-      <input class="txt" id="a5-token" type="password" placeholder="HUB TOKEN" autocomplete="off">
-      <div class="row"><button class="btn" id="a5-connect">BAĞLAN</button></div>
-      <div class="kv" id="a5-info">token + adres sadece bu cihazda saklanır · A5 dışarıdan erişilemez (LAN güvenliği)</div>
-    </div>
-    <div id="a5-main" class="hidden">
-      <div class="row" style="align-items:center">
-        <div class="kv" style="flex:1" id="a5-status">bağlanıyor…</div>
-        <button class="btn ghost sm" id="a5-refresh">YENİLE</button>
-        <button class="btn danger sm" id="a5-disconnect">KOPAR</button>
-      </div>
-      <div class="card" style="margin-top:8px">
-        <div class="ic">💻</div>
-        <div class="t"><b>Kayıtlı PC'ler</b><span id="a5-pcs">—</span></div>
-      </div>
-      <div class="card">
-        <div class="ic">⚡</div>
-        <div class="t"><b>PC'yi uyandır (WOL)</b><span>LAN'dayken çalışır · MAC: <span id="a5-mac-show">—</span></span></div>
-        <button class="btn ghost sm" id="a5-wol">UYANDIR</button>
-      </div>
-      <div class="row" style="margin-top:10px"><div class="sec-title" style="flex:1">📜 OLAYLAR (son 30)</div></div>
-      <div id="a5-events"></div>
-    </div>
-  </div>
+          <div class="card" style="cursor:pointer" id="a5sc-head">
+            <div class="ic">📱</div>
+            <div class="t"><b>A5 Ekranı (canlı izle + kontrol)</b><span id="a5sc-info">dokun = tık · sürükle = kaydırma · alttan tuşlar</span></div>
+            <span class="pill" id="a5sc-state">kapalı</span>
+          </div>
+          <div id="a5sc-panel" class="hidden">
+            <div id="a5sc-wrap">
+              <img id="a5sc-img" alt="A5 ekranı">
+              <div class="sc-msg hidden" id="a5sc-msg"></div>
+            </div>
+            <div class="sc-keys">
+              <button data-key="home" title="Ana ekran">🏠</button>
+              <button data-key="back" title="Geri">⬅️</button>
+              <button data-key="recents" title="Son uygulamalar">▤</button>
+              <button data-key="power" title="Güç">⏻</button>
+              <button data-key="volup" title="Ses +">🔊+</button>
+              <button data-key="voldown" title="Ses −">🔊−</button>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <input class="txt" id="a5sc-text" placeholder="telefona yaz (klavye açılır)" autocapitalize="off" autocomplete="off" style="flex:3">
+              <button class="btn green" id="a5sc-send" style="flex:1">YAZ</button>
+            </div>
+          </div>
 
-  <!-- ═══ UYGULAMA: SİSTEM DURUMU ═══ -->
-  <div id="pg-durum" class="box hidden">
-    <div class="row" style="align-items:center">
-      <div class="sec-title" style="flex:1">🩺 SİSTEM DURUMU</div>
-      <button class="btn ghost sm" id="st2-refresh">YENİLE</button>
-      <a class="btn ghost sm" href="#/">← GERİ</a>
-    </div>
-    <div id="durum-list"></div>
-    <div class="meta">yeşil = çalışıyor · kırmızı = erişilemiyor · tünel yaşı = GitHub keşif dosyasının tazeliğinden hesaplanır</div>
-  </div>
+          <div class="sec" style="margin-top:14px">📜 OLAYLAR (son 30)</div>
+          <div id="a5-events"></div>
+        </div>
+      </section>
 
-  <!-- ═══ UYGULAMA: YAPAY ZEKÂ PANOSU ═══ -->
-  <div id="pg-ai" class="box hidden">
-    <div class="row" style="align-items:center">
-      <div class="sec-title" style="flex:1">🤖 GÖREV PANOSU</div>
-      <a class="btn ghost sm" href="#/">← GERİ</a>
-    </div>
-    <div class="kv" style="margin-bottom:10px">yapay zekaya şunu yaz: <b>"panoyu oku, sıradaki planlandı görevi yap"</b> — görev durumları: planlandı → yapılıyor → bitti (üstüne tıkla, değişir)</div>
-    <div class="card" style="cursor:pointer" id="cl-head">
-      <div class="ic">☁️</div>
-      <div class="t"><b>Bulut senkronu</b><span>GitHub'da saklanır · tüm cihazlardan aynı liste · otomatik gönder/çek</span></div>
-      <span class="pill" id="cl-state">kapalı</span>
-    </div>
-    <div id="cl-panel" class="hidden" style="margin-bottom:12px">
-      <input class="txt" id="cl-token" type="password" placeholder="GitHub token (Contents: Read and Write yetkili)" autocomplete="off">
-      <div class="row">
-        <button class="btn" id="cl-connect">BAĞLAN</button>
-        <button class="btn ghost" id="cl-pull">ŞİMDİ ÇEK</button>
-        <button class="btn ghost" id="cl-push">ŞİMDİ GÖNDER</button>
-        <button class="btn danger" id="cl-off">KOPAR</button>
-      </div>
-      <div class="kv" id="cl-info">token sadece bu cihazda saklanır (localStorage) · liste panpikontrol-site reposunun data/tasks.json dosyasında tutulur</div>
-    </div>
-    <input class="txt" id="task-inp" placeholder="yeni görev / fikir…">
-    <div class="row">
-      <button class="btn" id="task-add">+ EKLE</button>
-      <button class="btn ghost" id="task-clear">BİTTENLERİ TEMİZLE</button>
-    </div>
-    <div id="task-list"></div>
+      <!-- ═══ MESAJ KUTUSU ═══ -->
+      <section id="pg-msg" class="pg hidden">
+        <div class="sec" style="margin:8px 0">✉️ MESAJ KUTUSU</div>
+        <div class="kv" style="margin-bottom:8px">Uzaktayken buraya yaz — PC ajanı <b>her 10 saniyede</b> kontrol eder, mesajın <b>INBOX.md</b>'ye düşer ve yapay zekâ bir sonraki konuşmada okur. Kimse okumaz, uçtan uca senin hesabın.</div>
+        <div class="msg-status"><span class="dot" id="msg-dot"></span><span id="msg-status">kontrol ediliyor…</span></div>
+        <div id="msg-tokenrow" class="hidden">
+          <input class="txt" id="msg-token" type="password" placeholder="GitHub token (Contents: Read and Write yetkili)" autocomplete="off">
+          <div class="row"><button class="btn green" id="msg-tokbtn">TOKEN'LA BAĞLAN</button></div>
+          <div class="kv" id="msg-tokinfo">token sadece bu cihazda saklanır — mesajlar GitHub reposunun data/inbox.json dosyasına yazılır</div>
+        </div>
+        <textarea id="msg-txt" placeholder="Yapay zekâya göndereceğin mesaj / görev / soru… (örn: panoyu oku, sıradaki görevi yap)"></textarea>
+        <div class="row">
+          <button class="btn green" id="msg-send">📨 GÖNDER</button>
+          <button class="btn sm" id="msg-pull">YENİLE</button>
+        </div>
+        <div class="kv" id="msg-info"></div>
+        <div class="sec" style="margin-top:14px">📤 SON GÖNDERDİKLERİM</div>
+        <div id="msg-list"></div>
+        <div class="meta">ipucu: uzun görevleri tek mesajda yaz; "devam et" dediğinde yapay zekâ tüm kutuya bakar ve sırayla işler.</div>
+      </section>
+
+      <!-- ═══ SİSTEM DURUMU ═══ -->
+      <section id="pg-durum" class="pg hidden">
+        <div class="kv-row"><div class="sec" style="margin:8px 0">🩺 SİSTEM DURUMU</div><button class="btn sm" id="st2-refresh">YENİLE</button></div>
+        <div id="durum-list"></div>
+        <div class="meta">yeşil = çalışıyor · kırmızı = erişilemiyor · tünel yaşı = keşif dosyasının tazeliğinden hesaplanır</div>
+      </section>
+    </main>
+
+    <nav class="tabs">
+      <button data-r="#/" class="active"><span class="ic">🏠</span>ANA</button>
+      <button data-r="#/notlar"><span class="ic">📝</span>NOTLAR</button>
+      <button data-r="#/ai"><span class="ic">🤖</span>GÖREV</button>
+      <button data-r="#/a5"><span class="ic">📟</span>A5</button>
+      <button data-r="#/mesaj"><span class="ic">✉️</span>MESAJ</button>
+    </nav>
   </div>
 
 <script>
 'use strict';
 /* ═══════════ GÜVENLİK KAPISI ═══════════
-   PBKDF2-SHA256 (100k tur) + sabit tuz — düz şifre sitede asla yok.
-   5 hatalı deneme → 15 dk kilit (localStorage). Sekme değişince + 15 dk boşta otomatik kilit. */
+   PBKDF2-SHA256 (100k tur) + sabit tuz. 5 hatalı deneme → 15 dk kilit.
+   Sekme değişince + 15 dk boşta otomatik kilit. */
 const SALT=[0x50,0x61,0x6e,0x70,0x69,0x4b,0x6f,0x6e,0x74,0x72,0x6f,0x6c,0x2d,0x45,0x6d,0x69,0x6e,0x2d,0x73,0x61,0x6c,0x74,0x2d,0x32,0x30,0x32,0x36,0x21];
 const ITERS=100000;
 const HASH='5045a67f85b3625a497286ed0f649a629cae5f8e6bfeb6a490698893e1f10150';
+const DISCOVER_URL='https://minikluffy.github.io/panpikontrol-site/data/relay.json';
 
 const $=id=>document.getElementById(id);
 function store(k,v){try{localStorage.setItem(k,v)}catch(_){}}
 function read(k){try{return localStorage.getItem(k)}catch(_){return null}}
+function load(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(_){return d}}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
 async function derive(pw){
   const enc=new TextEncoder();
@@ -297,9 +340,18 @@ async function derive(pw){
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new Uint8Array(SALT),iterations:ITERS,hash:'SHA-256'},key,256);
   return [...new Uint8Array(bits)].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
-function lockNow(){sessionStorage.removeItem('pk_gate');$('main').classList.add('hidden');$('pg-notlar').classList.add('hidden');$('pg-ai').classList.add('hidden');$('pg-kasa').classList.add('hidden');$('gate').classList.remove('hidden');try{vaultLock()}catch(_){ }try{$('pw').focus()}catch(_){}}
-function unlock(){sessionStorage.setItem('pk_gate','1');sessionStorage.setItem('pk_at',String(Date.now()));$('gate').classList.add('hidden');$('main').classList.remove('hidden');route();tick()}
-
+function hideAllPages(){document.querySelectorAll('.pg').forEach(p=>p.classList.add('hidden'))}
+function lockNow(){
+  sessionStorage.removeItem('pk_gate');
+  $('main').classList.add('hidden');$('gate').classList.remove('hidden');
+  a5scStop();
+  try{$('pw').focus()}catch(_){}
+}
+function unlock(){
+  sessionStorage.setItem('pk_gate','1');sessionStorage.setItem('pk_at',String(Date.now()));
+  $('gate').classList.add('hidden');$('main').classList.remove('hidden');
+  route();tick();
+}
 async function tryLogin(){
   const now=Date.now(),until=parseInt(read('pk_t')||'0',10);
   if(until>now){$('err').textContent='🔒 kilitli — '+Math.ceil((until-now)/60000)+' dk bekleyip tekrar dene';return}
@@ -316,7 +368,7 @@ $('go').onclick=tryLogin;
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')tryLogin()});
 $('lock').onclick=lockNow;
 
-/* hash-param ile giriş: site#k=<pbkdf2 hash> — diğer sohbetlere token yerine geçebilir */
+/* hash-param ile giriş: site#k=<pbkdf2 hash> */
 (async function(){
   const m=/[#&]k=([0-9a-f]{64})/.exec(location.hash);
   if(m&&m[1]===HASH){history.replaceState(null,'',location.pathname);unlock();return}
@@ -327,46 +379,39 @@ $('lock').onclick=lockNow;
   }else try{$('pw').focus()}catch(_){}
 })();
 
-/* 15 dk boşta + sekme gizlenince otomatik kilit; 1 saat boşta → duyarlı veriyi (kasa anahtarı bellekten zaten gider) localStorage'dan da temizle */
-let idleT;
+/* 15 dk boşta + sekme gizlenince otomatik kilit; 1 saat boşta → duyarlı veri temizliği */
+let idleT,longIdleT;
 function armIdle(){clearTimeout(idleT);idleT=setTimeout(()=>{if(sessionStorage.getItem('pk_gate'))lockNow()},15*60*1000)}
-let longIdleT;
-function armLongIdle(){clearTimeout(longIdleT);longIdleT=setTimeout(()=>{
-  try{localStorage.removeItem('cl_token');localStorage.removeItem('a5_token');}catch(_){ }
-},60*60*1000)}
+function armLongIdle(){clearTimeout(longIdleT);longIdleT=setTimeout(()=>{try{localStorage.removeItem('cl_token');localStorage.removeItem('a5_token');}catch(_){}},60*60*1000)}
 ['mousemove','keydown','touchstart','click'].forEach(ev=>{document.addEventListener(ev,armIdle,{passive:true});document.addEventListener(ev,armLongIdle,{passive:true})});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&sessionStorage.getItem('pk_gate')==='1')lockNow()});
 armIdle();armLongIdle();
 
-/* saat */
-function tick(){const d=new Date();$('clock').textContent=d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}
+function tick(){const d=new Date();$('clock').textContent=d.toLocaleDateString('tr-TR')+' · '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}
 setInterval(tick,30000);tick();
 
-/* ═══════════ BASİT HASH ROUTER ═══════════ */
+/* ═══════════ ROUTER + ALT GEZGİN ═══════════ */
+const PAGES={'#/':'pg-ana','#/notlar':'pg-notlar','#/ai':'pg-ai','#/a5':'pg-a5','#/mesaj':'pg-msg','#/durum':'pg-durum'};
 function route(){
+  if(sessionStorage.getItem('pk_gate')!=='1')return;
   const h=location.hash||'#/';
-  const unlocked=sessionStorage.getItem('pk_gate')==='1';
-  if(!unlocked)return;
-  $('main').classList.toggle('hidden',h!=='#/');
-  $('pg-notlar').classList.toggle('hidden',h!=='#/notlar');
-  $('pg-ai').classList.toggle('hidden',h!=='#/ai');
-  $('pg-kasa').classList.toggle('hidden',h!=='#/kasa');
-  $('pg-a5').classList.toggle('hidden',h!=='#/a5');
-  $('pg-durum').classList.toggle('hidden',h!=='#/durum');
+  const pg=PAGES[h]||'pg-ana';
+  hideAllPages();
+  $(pg).classList.remove('hidden');
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.r===h));
+  document.querySelector('main').scrollTop=0;
   if(h==='#/durum')durumCheck();
   if(h==='#/notlar')renderNotes();
   if(h==='#/ai')renderTasks();
   if(h==='#/ai'&&cloudOn()){clState('çekiliyor…');clPull(true)}
   if(h==='#/a5')a5Init();
-  if(h==='#/kasa'){
-    if(K_KEY){$('kasa-main').classList.remove('hidden');$('kasa-lock-view').classList.add('hidden')}
-    else{$('kasa-main').classList.add('hidden');$('kasa-lock-view').classList.remove('hidden')}
-  }
+  if(h==='#/mesaj')msgInit();
+  if(h!=='#/a5')a5scStop();
 }
 window.addEventListener('hashchange',route);
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{location.hash=b.dataset.r});
 
 /* ═══════════ NOTLAR ═══════════ */
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function notes(){try{return JSON.parse(read('emin_notes')||'[]')}catch(_){return []}}
 function renderNotes(){
   const a=notes(),el=$('note-list');
@@ -388,14 +433,13 @@ $('notlar-exp').onclick=()=>{
   setTimeout(()=>URL.revokeObjectURL(u),3000);
 };
 
-/* ═══════════ YAPAY ZEKÂ GÖREV PANOSU ═══════════ */
+/* ═══════════ GÖREV PANOSU ═══════════ */
 const CYCLE=['planlandı','yapılıyor','bitti'];
 function tasks(){
   if(read('emin_tasks')===null){
     const seed=[
-      {t:'PanpiKontrol: tünel adresini GitHub Pages\'e yazan sabit keşif sistemi (PC yeniden başlasa telefon hep bağlanabilsin)',s:'planlandı',ts:Date.now()},
-      {t:'Samsung A5\'i ev sunucusu yap: güvenlik olayları + cihaz köprüsü planı çıkar',s:'planlandı',ts:Date.now()},
-      {t:'Merkez sitesine yeni uygulama fikirleri: şifreli not yedeği, dosya kasası, kısayol paneli',s:'planlandı',ts:Date.now()}
+      {t:'A5 tam kurulum: Termux servisleri kalıcı açık (wake-lock + pil istisnası) + hub canlı',s:'planlandı',ts:Date.now()},
+      {t:'Mesaj kutusu: uzaktan prompt akışını bir hafta izle, aksayan varsa düzelt',s:'planlandı',ts:Date.now()}
     ];
     store('emin_tasks',JSON.stringify(seed));return seed;
   }
@@ -406,7 +450,7 @@ function renderTasks(){
   if(!a.length){el.innerHTML='<div class="kv">görev yok — yukarıdan ekle.</div>';return}
   el.innerHTML=a.map((x,i)=>{
     const c=x.s==='bitti'?'var(--dim)':x.s==='yapılıyor'?'var(--amber)':'var(--acc)';
-    return '<div class="task'+(x.s==='bitti'?' done':'')+'"><span style="cursor:pointer;font-size:10px;color:'+c+';border:1px solid '+c+';border-radius:9px;padding:2px 8px;min-width:74px;text-align:center" data-cy="'+i+'">'+x.s+'</span><span class="tt">'+esc(x.t)+'</span><span style="cursor:pointer;color:var(--warn)" data-del="'+i+'">✕</span></div>';
+    return '<div class="task'+(x.s==='bitti'?' done':'')+'"><span style="cursor:pointer;font-size:10px;color:'+c+';border:1px solid '+c+';border-radius:20px;padding:3px 9px;min-width:80px;text-align:center" data-cy="'+i+'">'+x.s+'</span><span class="tt">'+esc(x.t)+'</span><span style="cursor:pointer;color:var(--warn)" data-del="'+i+'">✕</span></div>';
   }).join('');
   el.querySelectorAll('[data-cy]').forEach(b=>b.onclick=()=>{const a2=tasks();a2[parseInt(b.dataset.cy,10)].s=CYCLE[(CYCLE.indexOf(a2[parseInt(b.dataset.cy,10)].s)+1)%3];store('emin_tasks',JSON.stringify(a2));renderTasks();clMarkDirty()});
   el.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{const a2=tasks();a2.splice(parseInt(x.dataset.del,10),1);store('emin_tasks',JSON.stringify(a2));renderTasks();clMarkDirty()});
@@ -419,76 +463,69 @@ $('task-add').onclick=()=>{
 $('task-inp').addEventListener('keydown',e=>{if(e.key==='Enter')$('task-add').click()});
 $('task-clear').onclick=()=>{store('emin_tasks',JSON.stringify(tasks().filter(x=>x.s!=='bitti')));renderTasks();clMarkDirty()};
 
-/* ═══════════ GÖREV PANOSU · BULUT SENKRONU (GitHub repo data/tasks.json) ═══════════
-   Yazma: Contents API (PUT) — token'da Contents:RW var (deploy bunu kullanıyor).
-   Çakışma: timestamp karşılaştırması — son yazan kazanır; pull'da yerel boşsa bulut gelir.
-   Kapalıysa: panoyu her zamanki gibi localStorage'dan çalışır. */
-const CL_OWNER='Minikluffy',CL_REPO='panpikontrol-site',CL_BRANCH='gh-pages',CL_PATH='data/tasks.json';
-var CL_TIMER=null,CL_DIRTY=null;
-function toast(m){try{console.log('[pano]',m)}catch(_){}}
+/* ═══════════ GÖREV PANOSU · BULUT SENKRONU ═══════════ */
+const CL_OWNER='Minikluffy',CL_REPO='panpikontrol-site',CL_BRANCH='gh-pages',CL_PATH='data/tasks.json',INBOX_PATH='data/inbox.json';
 const cloudOn=()=>!!read('cl_token');
 const clHdr=()=>({Authorization:'Bearer '+read('cl_token'),'Accept':'application/vnd.github+json','User-Agent':'emerkez-site','Content-Type':'application/json'});
-function clState(txt,ok){const p=$('cl-state');p.textContent=txt;p.className='pill'+(ok?' ok':ok===false?' warn':'')}
-function tasksRemote(a){/* bulut formatı = yerel format; ilerde alan eklenirse burada çevrilir */return a}
+function clState(txt,ok){const p=$('cl-state');p.textContent=txt;p.className='pill'+(ok?' ok':ok===false?' err':'')}
+async function ghFetch(path2){ // mevcut dosya + sha
+  const r=await fetch('https://api.github.com/repos/'+CL_OWNER+'/'+CL_REPO+'/contents/'+path2+'?ref='+CL_BRANCH+'&t='+Date.now(),{headers:clHdr(),cache:'no-store'});
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error('oku '+r.status);
+  const j=await r.json();
+  return {sha:j.sha, data:JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,'')))))};
+}
+async function ghPut(path2,data,msg){
+  for(let den=0;den<3;den++){
+    const cur=await ghFetch(path2).catch(()=>null);
+    const body={message:msg||'guncelle',content:btoa(unescape(encodeURIComponent(JSON.stringify(data,null,1)))),branch:CL_BRANCH};
+    if(cur&&cur.sha)body.sha=cur.sha;
+    const pr=await fetch('https://api.github.com/repos/'+CL_OWNER+'/'+CL_REPO+'/contents/'+path2,{method:'PUT',headers:clHdr(),body:JSON.stringify(body)});
+    if(pr.status===409||pr.status>=500){await new Promise(r=>setTimeout(r,1500));continue}
+    if(!pr.ok)throw new Error('yaz '+pr.status);
+    return true;
+  }
+  throw new Error('yaz 409 (3 deneme)');
+}
 async function clPush(silent){
   if(!cloudOn())return false;
   try{
-    for(let den=0;den<3;den++){ // GitHub hızlı ardışık yazımda bazen 409 veriyor — taze sha ile tekrar
-      // 1) mevcut sha'yı al (dosya yoksa null) — no-store ŞART: tarayıcı GET'i önbelleğe alıp bayat sha döndürüyor
-      let sha=null;
-      const gr=await fetch('https://api.github.com/repos/'+CL_OWNER+'/'+CL_REPO+'/contents/'+CL_PATH+'?ref='+CL_BRANCH+'&t='+Date.now(),{headers:clHdr(),cache:'no-store'});
-      if(gr.status===200){sha=(await gr.json()).sha}
-      else if(gr.status!==404)throw new Error('oku '+gr.status);
-      // 2) yaz (yerel liste her zaman kaynak)
-      const body={message:'gorev panosu guncelle',content:btoa(unescape(encodeURIComponent(JSON.stringify(tasks(),null,1)))),branch:CL_BRANCH};
-      if(sha)body.sha=sha;
-      const pr=await fetch('https://api.github.com/repos/'+CL_OWNER+'/'+CL_REPO+'/contents/'+CL_PATH,{method:'PUT',headers:clHdr(),body:JSON.stringify(body)});
-      if(pr.status===409||pr.status>=500){await new Promise(r=>setTimeout(r,1500));continue}
-      if(!pr.ok)throw new Error('yaz '+pr.status);
-      CL_DIRTY=false;clState('senkron ✓',true);
-      if(!silent)toast('☁️ buluta gönderildi');
-      return true;
-    }
-    throw new Error('yaz 409 (3 deneme)');
-  }catch(e){clState('hata',false);if(!silent)toast('✗ buluta gönderilemedi: '+(e.message||e));return false}
+    await ghPut(CL_PATH,tasks(),'gorev panosu guncelle');
+    CL_DIRTY=false;clState('senkron ✓',true);
+    return true;
+  }catch(e){clState('hata',false);if(!silent)$('cl-info').textContent='✗ gönderilemedi: '+(e.message||e);return false}
 }
+var CL_TIMER=null,CL_DIRTY=null;
 async function clPull(silent){
   if(!cloudOn())return false;
   try{
-    const r=await fetch('https://api.github.com/repos/'+CL_OWNER+'/'+CL_REPO+'/contents/'+CL_PATH+'?ref='+CL_BRANCH+'&t='+Date.now(),{headers:clHdr(),cache:'no-store'});
-    if(r.status===404){if(!silent)toast('bulut boş — gönderince oluşur');return false}
-    if(!r.ok)throw new Error(r.status);
-    const j=await r.json();
-    const remote=JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,'')))));
-    const local=tasks();
-    // merge: iki tarafı da al, id yerine metin+ts ile tekilleştir, ts'e göre yeni önce
+    const cur=await ghFetch(CL_PATH);
+    if(!cur){if(!silent)$('cl-info').textContent='bulut boş — gönderince oluşur';return false}
+    const remote=cur.data,local=tasks();
     const map=new Map();
     for(const t of remote.concat(local))map.set(t.t+'|'+t.ts,t);
     const merged=[...map.values()].sort((a,b)=>(b.ts||0)-(a.ts||0));
-    const changed=JSON.stringify(merged)!==JSON.stringify(local);
-    if(changed){store('emin_tasks',JSON.stringify(merged));renderTasks();}
+    if(JSON.stringify(merged)!==JSON.stringify(local)){store('emin_tasks',JSON.stringify(merged));renderTasks()}
     clState('senkron ✓',true);
-    if(!silent&&changed)toast('☁️ buluttan çekildi ('+merged.length+' görev)');
     return true;
-  }catch(e){clState('hata',false);if(!silent)toast('✗ bulutdan çekilemedi: '+(e.message||e));return false}
+  }catch(e){clState('hata',false);if(!silent)$('cl-info').textContent='✗ çekilemedi: '+(e.message||e);return false}
 }
 function clMarkDirty(){
   if(!cloudOn())return;
   CL_DIRTY=true;clState('bekliyor…');
   clearTimeout(CL_TIMER);
-  CL_TIMER=setTimeout(()=>clPush(false),2500); // son yazmadan 2.5 sn sonra otomatik gönder
+  CL_TIMER=setTimeout(()=>clPush(false),2500);
 }
 async function clConnect(){
   const tk=$('cl-token').value.trim();
   if(!tk){$('cl-info').textContent='token gir';return}
   store('cl_token',tk);
-  // yetki testi: hedef dosyaya okuma yetkisi + user
   try{
     const u=await fetch('https://api.github.com/user',{headers:clHdr(),cache:'no-store'});
     if(!u.ok)throw new Error('token geçersiz ('+u.status+')');
     const me=await u.json();
     if(me.login.toLowerCase()!==CL_OWNER.toLowerCase())throw new Error('bu token '+me.login+' kullanıcısına ait — '+CL_OWNER+' olmalı');
-    localStorage.removeItem('cl_token');store('cl_token',tk); // header cache yenile
+    localStorage.removeItem('cl_token');store('cl_token',tk);
     $('cl-info').textContent='bağlı: '+me.login+' · otomatik gönder/çek aktif';
     $('cl-token').value='';
     clState('açık',true);
@@ -504,6 +541,68 @@ $('cl-pull').onclick=()=>clPull(false);
 $('cl-push').onclick=()=>clPush(false);
 $('cl-off').onclick=clOff;
 
+/* ═══════════ MESAJ KUTUSU (uzaktan prompt) ═══════════ */
+function msgSent(){try{return JSON.parse(read('msg_sent')||'[]')}catch(_){return []}}
+function msgStatus(txt,cls){$('msg-status').textContent=txt;$('msg-dot').className='dot'+(cls==='ok'?' on':cls==='no'?' off':'')}
+function msgInit(){
+  if(cloudOn()){
+    $('msg-tokenrow').classList.add('hidden');
+    msgStatus('hazır · PC her 10 sn'+(cloudOn()?'':'')+'de kontrol ediyor','ok');
+  }else{
+    $('msg-tokenrow').classList.remove('hidden');
+    msgStatus('GitHub token gerekli','no');
+  }
+  renderMsgList();
+}
+function renderMsgList(){
+  const a=msgSent(),el=$('msg-list');
+  if(!a.length){el.innerHTML='<div class="kv">henüz mesaj göndermedin.</div>';return}
+  el.innerHTML=a.map(n=>'<div class="note"><div class="nt"><span>'+new Date(n.ts).toLocaleString('tr-TR')+'</span><span style="color:var(--acc)">✓ gönderildi</span></div><div class="nb">'+esc(n.msg)+'</div></div>').join('');
+}
+$('msg-tokbtn').onclick=async()=>{
+  const tk=$('msg-token').value.trim();
+  if(!tk){$('msg-tokinfo').textContent='token gir';return}
+  store('cl_token',tk);
+  try{
+    const u=await fetch('https://api.github.com/user',{headers:clHdr(),cache:'no-store'});
+    if(!u.ok)throw new Error('token geçersiz ('+u.status+')');
+    const me=await u.json();
+    if(me.login.toLowerCase()!==CL_OWNER.toLowerCase())throw new Error('bu token '+me.login+' kullanıcısına ait');
+    $('msg-token').value='';$('msg-tokenrow').classList.add('hidden');
+    msgStatus('hazır · PC her 10 saniyede kontrol ediyor','ok');
+    $('msg-tokinfo').textContent='✓ bağlı: '+me.login;
+  }catch(e){localStorage.removeItem('cl_token');$('msg-tokinfo').textContent='✗ '+(e.message||e)}
+};
+$('msg-send').onclick=async()=>{
+  const msg=$('msg-txt').value.trim();
+  if(!msg){$('msg-info').textContent='önce mesaj yaz';return}
+  if(!cloudOn()){msgStatus('önce token ile bağlan','no');$('msg-tokenrow').classList.remove('hidden');return}
+  if(msg.length>4000){$('msg-info').textContent='✗ çok uzun (en fazla 4000 karakter) — parçala';return}
+  $('msg-info').textContent='gönderiliyor…';
+  try{
+    const cur=await ghFetch(INBOX_PATH).catch(()=>null);
+    let list=cur&&Array.isArray(cur.data.list)?cur.data.list:[];
+    list.unshift({id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),ts:Date.now(),msg:msg,from:'site'});
+    list=list.slice(0,50);
+    await ghPut(INBOX_PATH,{list:list},'mesaj kutusu guncelle');
+    const s=msgSent();s.unshift({msg:msg,ts:Date.now()});store('msg_sent',JSON.stringify(s.slice(0,20)));
+    $('msg-txt').value='';
+    $('msg-info').textContent='✓ gönderildi — PC ajanı en geç 10 sn içinde alır (INBOX.md)';
+    msgStatus('son mesaj iletildi','ok');
+    renderMsgList();
+  }catch(e){$('msg-info').textContent='✗ gönderilemedi: '+(e.message||e);msgStatus('gönderilemedi','no')}
+};
+$('msg-txt').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))$('msg-send').click()});
+$('msg-pull').onclick=async()=>{
+  if(!cloudOn()){msgStatus('önce token ile bağlan','no');return}
+  try{
+    const cur=await ghFetch(INBOX_PATH).catch(()=>null);
+    const list=cur&&Array.isArray(cur.data.list)?cur.data.list:[];
+    $('msg-info').textContent='kutuda '+list.length+' mesaj var — hepsi PC tarafından işlendi/okundu';
+    msgStatus('senkron ✓','ok');
+  }catch(e){$('msg-info').textContent='✗ okunamadı: '+(e.message||e)}
+};
+
 /* ═══════════ A5 HUB İSTEMCİSİ ═══════════ */
 function a5base(){const h=($('a5-host').value||read('a5_host')||'').trim().replace(/^https?:\/\//,'');return 'http://'+h}
 function a5hdr(){return {'Authorization':'Bearer '+(read('a5_token')||'')}}
@@ -513,12 +612,12 @@ async function a5ping(){
   try{
     const c=new AbortController(),t=setTimeout(()=>c.abort(),4000);
     const r=await fetch(a5base()+'/health',{headers:a5hdr(),signal:c.signal,cache:'no-store'});clearTimeout(t);
-    if(r.status===423){$('a5-status').innerHTML='<span style=\"color:var(--warn)\">🔒 hub kilitli (5 hata) — 15 dk bekle</span>';return}
+    if(r.status===423){$('a5-status').innerHTML='<span style="color:var(--warn)">🔒 hub kilitli (5 hata) — 15 dk bekle</span>';return}
     if(r.status===401){localStorage.removeItem('a5_token');a5Show();$('a5-info').textContent='✗ token geçersiz — tekrar gir';return}
     const j=await r.json();
     $('a5-status').innerHTML='🟢 hub açık · çalışma: '+Math.floor(j.up/60)+' dk '+j.up%60+' sn';
     await a5Load();
-  }catch(e){$('a5-status').innerHTML='<span style=\"color:var(--warn)\">🔴 hub erişilemedi — A5 açık mı, aynı ağda mı?</span>'}
+  }catch(e){$('a5-status').innerHTML='<span style="color:var(--warn)">🔴 hub erişilemedi — A5 açık mı, aynı ağda mı?</span>'}
 }
 async function a5Load(){
   try{
@@ -549,7 +648,7 @@ $('a5-connect').onclick=async()=>{
 };
 $('a5-token').addEventListener('keydown',e=>{if(e.key==='Enter')$('a5-connect').click()});
 $('a5-refresh').onclick=a5ping;
-$('a5-disconnect').onclick=()=>{localStorage.removeItem('a5_token');a5Show();$('a5-info').textContent='koparıldı'};
+$('a5-disconnect').onclick=()=>{localStorage.removeItem('a5_token');a5Show();$('a5-info').textContent='koparıldı';a5scStop()};
 $('a5-wol').onclick=async()=>{
   const mac=prompt('PC MAC adresi (örn: 44:03:2c:29:63:64):','');
   if(!mac)return;
@@ -561,23 +660,88 @@ $('a5-wol').onclick=async()=>{
   }catch(e){$('a5-mac-show').textContent='hata: '+e.message}
 };
 
+/* ═══════════ A5 EKRANI (canlı izle + kontrol) ═══════════ */
+let a5scTimer=null,a5scOn=false;
+function a5remBase(){return a5base().replace(/:\d+$/,'')+':8556'}
+function a5scState(t,cls){const p=$('a5sc-state');p.textContent=t;p.className='pill'+(cls==='ok'?' ok':cls==='no'?' err':'')}
+function a5scStart(){
+  if(a5scOn)return;
+  a5scOn=true;
+  $('a5sc-panel').classList.remove('hidden');
+  a5scState('açık',true);
+  $('a5sc-info').textContent='dokun = tık · sürükle = kaydırma · alttan tuşlar';
+  a5scFrame();a5scTimer=setInterval(a5scFrame,1600);
+}
+function a5scStop(){
+  a5scOn=false;
+  if(a5scTimer){clearInterval(a5scTimer);a5scTimer=null}
+  if($('a5sc-state'))a5scState('kapalı');
+  const p=$('a5sc-panel');if(p)p.classList.add('hidden');
+}
+async function a5scFrame(){
+  if(!a5scOn)return;
+  const img=$('a5sc-img');
+  try{
+    const r=await fetch(a5remBase()+'/screen?t='+Date.now(),{headers:a5hdr(),cache:'no-store'});
+    if(r.status===401){a5scMsg('✗ yetkisiz (hub tokenı geçerli değil)');return}
+    if(r.status===501){a5scMsg('✗ root gerekli — A5\'e SuperSU kurulmalı');return}
+    if(!r.ok){a5scMsg('✗ ekran alınamadı ('+r.status+')');return}
+    const b=await r.blob();
+    img.src=URL.createObjectURL(b);
+    $('a5sc-msg').classList.add('hidden');
+  }catch(e){a5scMsg('A5 ekran servisi kapalı — a5-remote.js çalışıyor mu?')}
+}
+function a5scMsg(t){const m=$('a5sc-msg');m.textContent=t;m.classList.remove('hidden')}
+async function a5scInput(obj){
+  try{
+    const r=await fetch(a5remBase()+'/input',{method:'POST',headers:{...a5hdr(),'Content-Type':'application/json'},body:JSON.stringify(obj)});
+    if(r.status===501){a5scMsg('✗ root gerekli (SuperSU)');return}
+  }catch(e){a5scMsg('A5 erişilemiyor')}
+}
+/* dokun/sürükle → tap/swipe (koordinat ölçekli) */
+(function(){
+  const wrap=$('a5sc-wrap'),img=$('a5sc-img');
+  let sx=0,sy=0,active=false,moved=false,startT=0;
+  function pos(ev){
+    const r=wrap.getBoundingClientRect();
+    const nx=img.naturalWidth||1,ny=img.naturalHeight||1;
+    return {x:Math.round((ev.clientX-r.left)*(nx/r.width)),y:Math.round((ev.clientY-r.top)*(ny/r.height))};
+  }
+  wrap.addEventListener('pointerdown',ev=>{active=true;moved=false;startT=Date.now();sx=ev.clientX;sy=ev.clientY;wrap.setPointerCapture(ev.pointerId)});
+  wrap.addEventListener('pointermove',ev=>{if(!active)return;if(Math.hypot(ev.clientX-sx,ev.clientY-sy)>14)moved=true});
+  wrap.addEventListener('pointerup',ev=>{
+    if(!active)return;active=false;
+    const p=pos(ev);
+    if(moved){a5scInput({type:'swipe',x:p.x,y:p.y,x2:p.x,y2:p.y,dur:Math.min(900,Math.max(150,Date.now()-startT))});return}
+    a5scInput({type:'tap',x:p.x,y:p.y});
+  });
+  wrap.addEventListener('pointercancel',()=>{active=false});
+})();
+$('a5sc-head').onclick=()=>{a5scOn?a5scStop():a5scStart()};
+document.querySelectorAll('.sc-keys button').forEach(b=>b.onclick=()=>a5scInput({type:'key',key:b.dataset.key}));
+$('a5sc-send').onclick=()=>{
+  const t=$('a5sc-text').value;
+  if(!t)return;
+  a5scInput({type:'text',text:t});
+  $('a5sc-text').value='';
+};
+$('a5sc-text').addEventListener('keydown',e=>{if(e.key==='Enter')$('a5sc-send').click()});
+
 /* ═══════════ SİSTEM DURUMU ═══════════ */
 async function durumCheck(){
   const el=$('durum-list');
   el.innerHTML='<div class="kv">kontrol ediliyor…</div>';
   const rows=[];
   const row=(name,ok,detail)=>rows.push('<div class="card"><div class="ic">'+(ok?'🟢':'🔴')+'</div><div class="t"><b>'+name+'</b><span>'+detail+'</span></div></div>');
-  // 1) PC ajanı (LAN veya tünel — kayıtlı adrese dene)
   const savedAddr=load('addr','');
   if(savedAddr){
     const base=/\.trycloudflare\.com/i.test(savedAddr)?'https://'+savedAddr:'http://'+savedAddr;
     try{
       const c=new AbortController(),t=setTimeout(()=>c.abort(),3000);
       const j=await fetch(base+'/health',{signal:c.signal,cache:'no-store'}).then(x=>x.json());clearTimeout(t);
-      row('PC Ajanı (jav4s)',j.ok,'v'+j.version+' · '+j.devices+'/2 cihaz · tünel: '+(j.relay?'var':'yok'));
+      row('PC Ajanı',j.ok,'v'+j.version+' · '+j.devices+'/2 cihaz · tünel: '+(j.relay?'var':'yok'));
     }catch(_){row('PC Ajanı',false,'kayıtlı adrese ('+savedAddr+') ulaşılamadı — PC kapalı olabilir')}
-  }else row('PC Ajanı',false,'henüz eşleştirilmemiş');
-  // 2) A5 hub (varsa)
+  }else row('PC Ajanı',false,'henüz eşleştirilmemiş (telefon uygulamasından bağlanınca kaydedilir)');
   const hub=load('a5_host',''),htk=load('a5_token','');
   if(hub&&htk){
     try{
@@ -586,137 +750,18 @@ async function durumCheck(){
       row('A5 Hub ('+hub+')',j.ok,'açık: '+Math.floor(j.up/60)+' dk · '+j.pcs+' PC kayıtlı · '+j.events+' olay');
     }catch(_){row('A5 Hub',false,hub+' erişilemiyor — A5 kapalı/ağ dışı')}
   }else row('A5 Hub',false,'kurulmadı (opsiyonel) — A5 uygulamasından bağlanabilirsin');
-  // 3) Tünel yaşı (GitHub keşif dosyasının ts'i)
   try{
     const j=await fetch(DISCOVER_URL+'?t='+Date.now(),{cache:'no-store'}).then(x=>x.json());
     if(j&&j.relay){
       const ageMin=Math.round((Date.now()-(j.ts||0))/60000);
-      row('Mobil Tünel (keşif)',ageMin<24*60,' '+j.relay.replace('https://','').slice(0,34)+'… · keşif kaydı '+ageMin+' dk önce güncellendi');
+      row('Mobil Tünel (keşif)',ageMin<24*60,' '+j.relay.replace('https://','').slice(0,34)+'… · keşif kaydı '+ageMin+' dk önce');
     }else row('Mobil Tünel (keşif)',false,'keşif dosyası boş — PC kapalı olabilir');
-  }catch(_){row('Mobil Tünel (keşif)',false,'GitHub erişilemedi — internet yok olabilir')}
+  }catch(_){row('Mobil Tünel (keşif)',false,'GitHub erişilemedi')}
   el.innerHTML=rows.join('');
 }
 $('st2-refresh').onclick=durumCheck;
 
-/* adres kopyala — tamamen yerel, dış servis yok */
 $('cpy').onclick=async()=>{try{await navigator.clipboard.writeText(location.origin+location.pathname);$('cpy').textContent='✓ KOPYALANDI';setTimeout(()=>$('cpy').textContent='ADRESİ KOPYALA',1500)}catch(_){$('cpy').textContent=location.hostname;setTimeout(()=>$('cpy').textContent='ADRESİ KOPYALA',2500)}};
-
-/* ═══════════ ŞİFRELİ KASA · PBKDF2 (200k) → AES-256-GCM ═══════════
-   Kasa şifresi asla saklanmaz; ondan türetilen anahtar sadece bellekte (K_KEY).
-   localStorage'a yalnızca: doğrulayıcı (emin_kasa_v) + şifreli kayıtlar (emin_kasa).
-   var bilinçli: script ortasında route() çağrılabilirken TDZ'e takılmasın. */
-var K_KEY=null,K_OPEN=[];
-const K_ITERS=200000;
-const K_SALT_STR='PanpiKontrol-Emin-kasa-salt-2026!';
-const kb64=u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)};
-const kunb64=s=>new Uint8Array([...atob(s)].map(c=>c.charCodeAt(0)));
-async function kDerive(pw){
-  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2',salt:new Uint8Array([...K_SALT_STR].map(c=>c.charCodeAt(0))),iterations:K_ITERS,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
-}
-async function kEnc(key,txt){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(txt)));return{iv:kb64(iv),ct:kb64(ct)}}
-async function kDec(key,rec){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:kunb64(rec.iv)},key,kunb64(rec.ct));return new TextDecoder().decode(pt)}
-function kasaData(){try{return JSON.parse(read('emin_kasa')||'[]')}catch(_){return[]}}
-function kasaSaveData(a){store('emin_kasa',JSON.stringify(a))}
-function vaultLock(){
-  K_KEY=null;K_OPEN=[];
-  const m=$('kasa-main');if(!m)return;
-  m.classList.add('hidden');$('kasa-lock-view').classList.remove('hidden');
-  $('kasa-pw').value='';$('kasa-err').textContent='';$('kasa-txt').value='';$('kasa-name').value='';
-}
-async function kasaUnlock(){
-  const pw=$('kasa-pw').value;
-  if(!pw){$('kasa-err').textContent='kasa şifresi gir';return}
-  $('kasa-err').textContent='anahtar türetiliyor…';
-  try{
-    const key=await kDerive(pw);
-    const v=read('emin_kasa_v');
-    if(!v){ // ilk kurulum: doğrulayıcı yaz — sonraki girişlerde yanlış şifre net reddedilir
-      const ver=await kEnc(key,'kasa-acik');store('emin_kasa_v',JSON.stringify(ver));
-      if(read('emin_kasa')===null)kasaSaveData([]);
-    }else{
-      try{await kDec(key,JSON.parse(v))}catch(_){$('kasa-err').textContent='✗ kasa şifresi yanlış';return}
-    }
-    K_KEY=key;$('kasa-err').textContent='';
-    await kasaOpen();
-    $('kasa-lock-view').classList.add('hidden');$('kasa-main').classList.remove('hidden');$('kasa-pw').value='';
-  }catch(e){$('kasa-err').textContent='hata: '+(e.message||e)}
-}
-async function kasaOpen(){
-  K_OPEN=[];
-  for(const r of kasaData()){
-    try{
-      const o=JSON.parse(await kDec(K_KEY,r));
-      K_OPEN.push({id:r.id,ts:r.ts,n:o.n||'',t:o.t!=null?o.t:String(o)});
-    }catch(_){K_OPEN.push({id:r.id,ts:r.ts,n:'?',t:'⚠ çözülemedi (bozuk kayıt)'})}
-  }
-  renderKasa();
-}
-function renderKasa(){
-  $('kasa-count').textContent=K_OPEN.length;
-  const el=$('kasa-list');
-  if(!K_OPEN.length){el.innerHTML='<div class="kv">kasa boş — ilk sırrını ekle.</div>';return}
-  el.innerHTML=K_OPEN.map(x=>'<div class="note"><div class="nt"><span>'+esc(x.n||'(başlıksız)')+' · '+new Date(x.ts).toLocaleString('tr-TR')+'</span><span><span style="cursor:pointer;color:var(--acc2)" data-kc="'+x.id+'">kopyala</span> · <span style="cursor:pointer;color:var(--warn)" data-kd="'+x.id+'">sil</span></span></div><div class="nb">'+esc(x.t)+'</div></div>').join('');
-  el.querySelectorAll('[data-kd]').forEach(b=>b.onclick=()=>{kasaSaveData(kasaData().filter(r=>r.id!==b.dataset.kd));kasaOpen()});
-  el.querySelectorAll('[data-kc]').forEach(b=>b.onclick=async()=>{const it=K_OPEN.find(x=>x.id===b.dataset.kc);try{await navigator.clipboard.writeText(it.t);b.textContent='✓ kopyalandı';setTimeout(()=>b.textContent='kopyala',1200)}catch(_){}});
-}
-$('kasa-unlock').onclick=kasaUnlock;
-$('kasa-pw').addEventListener('keydown',e=>{if(e.key==='Enter')kasaUnlock()});
-$('kasa-lockbtn').onclick=vaultLock;
-$('kasa-wipe').onclick=()=>{if(!confirm('kasadaki HER ŞEY kalıcı silinsin mi? geri alınamaz.'))return;localStorage.removeItem('emin_kasa');localStorage.removeItem('emin_kasa_v');vaultLock();route()};
-$('kasa-save').onclick=async()=>{
-  const t=$('kasa-txt').value;
-  if(!t){return}
-  const payload=JSON.stringify({n:$('kasa-name').value.trim(),t:t});
-  const rec=await kEnc(K_KEY,payload);
-  rec.id=Math.random().toString(36).slice(2,10);rec.ts=Date.now();
-  const a=kasaData();a.unshift(rec);kasaSaveData(a);
-  $('kasa-txt').value='';$('kasa-name').value='';
-  await kasaOpen();
-};
-
-/* ═══ YEDEK AL / YÜKLE ═══
-   Dışa aktarım: kasa verisinin HAM şifreli halini (iv+ct kayıtları) paketler.
-   Dosya şifresiz metin İÇERMEZ — içerik zaten kasa şifresiyle AES-GCM'li.
-   İçe aktarım: dosyadaki kayıtlar aynı kasa şifresiyle çözülerek doğrulanır,
-   bozuk/sahte dosya reddedilir; mevcut kayıtlarla birleştirilir (id ile tekilleştir). */
-function kasaXmsg(t,ok){const el=$('kasa-xmsg');el.textContent=t;el.style.color=ok?'var(--acc)':'var(--warn)';setTimeout(()=>{el.style.color='';el.textContent='yedek: tüm kayıtlar tek .json dosyasında, kasa şifrenle şifreli — başka cihazda aynı kasa şifresiyle yüklersin'},4000)}
-$('kasa-export').onclick=()=>{
-  const a=kasaData();
-  if(!a.length){kasaXmsg('kasa boş — yedeklenecek kayıt yok');return}
-  const pack={app:'emerkez-kasa',v:1,exported:new Date().toISOString(),count:a.length,records:a};
-  const u=URL.createObjectURL(new Blob([JSON.stringify(pack,null,1)],{type:'application/json'}));
-  const link=document.createElement('a');
-  const d=new Date(),pad=x=>String(x).padStart(2,'0');
-  link.download='kasa-yedek-'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'.json';
-  link.href=u;link.click();
-  setTimeout(()=>URL.revokeObjectURL(u),3000);
-  kasaXmsg('✓ yedek indirildi ('+a.length+' kayıt, şifreli) — dosyayı güvenli yerde sakla',true);
-};
-$('kasa-import').onclick=()=>$('kasa-file').click();
-$('kasa-file').addEventListener('change',async ev=>{
-  const f=ev.target.files&&ev.target.files[0];
-  if(!f)return;
-  ev.target.value='';
-  if(!K_KEY){kasaXmsg('önce kasayı aç');return}
-  let pack;
-  try{pack=JSON.parse(await f.text())}catch(_){kasaXmsg('✗ dosya okunamadı — .json yedek mi?');return}
-  if(!pack||pack.app!=='emerkez-kasa'||!Array.isArray(pack.records)){kasaXmsg('✗ geçersiz yedek dosyası');return}
-  // her kaydı ÇÖZEREK doğrula (yanlış kasa şifresiyle şifrelenmiş/sahte dosya giremez)
-  const cur=kasaData();const ids=new Set(cur.map(r=>r.id));
-  let added=0,bad=0;
-  for(const r of pack.records){
-    try{
-      await kDec(K_KEY,r); // çözülmezse dosya bu kasaya ait değil
-      if(!ids.has(r.id)){cur.push(r);ids.add(r.id);added++}
-    }catch(_){bad++}
-  }
-  if(!added&&!bad){kasaXmsg('yedekteki kayıtlar zaten mevcut',true);return}
-  if(bad&&!added){kasaXmsg('✗ hiçbir kayıt çözülemedi — bu yedek BAŞKA kasa şifresiyle alınmış');return}
-  kasaSaveData(cur);
-  await kasaOpen();
-  kasaXmsg('✓ '+added+' kayıt eklendi'+(bad?' · '+bad+' bozuk/atlanan':'')+' — toplam '+cur.length,true);
-});
 </script>
 </body>
 </html>

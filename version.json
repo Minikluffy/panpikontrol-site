@@ -1,6 +1,6 @@
 {
-  "version": "2.8.0",
+  "version": "2.9.0",
   "url": "https://minikluffy.github.io/panpikontrol-site/dl/PanpiKontrol-Setup.zip",
-  "notes": "v2.5: telefon mikrofonu PC'de canlı + ev dışı erişim + telefondan güncelleme",
-  "updated": "2026-09-05T16:21:03.820Z"
+  "notes": "v2.9: mesaj kutusu (uzaktan prompt) + A5 ekran kontrolü + telefon tarzı arayüz",
+  "updated": "2026-09-05T23:36:01.579Z"
 }
