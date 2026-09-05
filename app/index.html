@@ -1,0 +1,2210 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#07090d">
+<title>PanpiKontrol</title>
+<style>
+:root{
+  --bg:#07090d; --panel:#0d1117; --panel2:#131a23; --line:#1f2a38;
+  --acc:#3ddc84; --acc2:#25b56a; --txt:#e6edf3; --dim:#8b98a5; --warn:#f85149;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+#app{height:100%;display:flex;flex-direction:column}
+
+/* ---------- ekranlar ---------- */
+.screen{position:absolute;inset:0;display:none;flex-direction:column}
+.screen.on{display:flex}
+
+/* ---------- connect ---------- */
+#scr-connect{align-items:center;justify-content:center;padding:16px;gap:10px;text-align:center}
+.logo{font-size:22px;font-weight:700;letter-spacing:2px;color:var(--acc);margin-bottom:2px}
+.sub{color:var(--dim);font-size:11px;margin-bottom:14px}
+.field{width:100%;max-width:360px;text-align:left}
+.field label{display:block;font-size:10px;color:var(--dim);margin:8px 0 4px;letter-spacing:1px}
+.field input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--txt);
+  padding:12px;font-size:16px;border-radius:8px;outline:none;font-family:inherit}
+.field input:focus{border-color:var(--acc)}
+.btn{width:100%;max-width:360px;padding:13px;border:none;border-radius:8px;background:var(--acc);
+  color:#04170c;font-weight:700;font-size:14px;letter-spacing:1px;margin-top:14px;cursor:pointer}
+.btn:active{background:var(--acc2)}
+.btn.ghost{background:var(--panel);color:var(--txt);border:1px solid var(--line)}
+#conn-status{font-size:11px;color:var(--dim);min-height:16px;margin-top:10px;white-space:pre-line}
+#conn-status.err{color:var(--warn)}
+
+/* ---------- main (yatay kontrol) ---------- */
+#scr-main{background:var(--bg)}
+#screenbar{height:62%;min-height:200px;background:#000;border-bottom:1px solid var(--line);
+  position:relative;flex:none;touch-action:none}
+#screen-canvas{width:100%;height:100%;display:block;object-fit:contain;background:#000}
+#screen-off{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--dim);font-size:11px;letter-spacing:1px;flex-direction:column;gap:8px}
+#screen-off .big{font-size:26px}
+#kbd-layer{flex:1;position:relative;display:flex;flex-direction:column;min-height:0}
+
+/* touchpad */
+#touchpad{flex:1;position:relative;background:
+  radial-gradient(circle at 50% 40%, #10161f 0%, #0a0e14 70%);
+  border-bottom:1px solid var(--line);min-height:0}
+#tp-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  color:#2a3644;font-size:11px;letter-spacing:2px;pointer-events:none;text-align:center}
+#cursor-dot{position:absolute;width:14px;height:14px;border:2px solid var(--acc);border-radius:50%;
+  pointer-events:none;transform:translate(-50%,-50%);opacity:0;transition:opacity .2s}
+#sb-dot{position:absolute;width:22px;height:22px;border:2px solid var(--acc);border-radius:50%;
+  background:rgba(61,220,132,.15);pointer-events:none;transform:translate(-50%,-50%);
+  opacity:0;transition:opacity .15s;z-index:5}
+#sb-dot.dragging{background:rgba(61,220,132,.45);box-shadow:0 0 0 6px rgba(61,220,132,.25)}
+/* dokunmatik halo: parmak altında nefes alan yumuşak halka (drag'te kehribar rengine döner) */
+#sb-halo{position:absolute;width:48px;height:48px;border-radius:50%;pointer-events:none;
+  transform:translate(-50%,-50%);opacity:0;z-index:4;
+  border:2px solid rgba(61,220,132,.6);box-shadow:0 0 14px rgba(61,220,132,.35),inset 0 0 10px rgba(61,220,132,.18);
+  transition:opacity .12s}
+#sb-halo.on{opacity:1;animation:sb-pulse 1.6s ease-in-out infinite}
+#sb-halo.hold{border-color:rgba(255,171,64,.9);
+  box-shadow:0 0 16px rgba(255,171,64,.5),inset 0 0 12px rgba(255,171,64,.3);
+  animation:sb-pulse .8s ease-in-out infinite}
+@keyframes sb-pulse{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.14)}}
+/* tık animasyonu: dokunma noktasından dışa açılan halka */
+.sb-ripple{position:absolute;border-radius:50%;pointer-events:none;z-index:6;
+  border:2px solid var(--acc);transform:translate(-50%,-50%);
+  width:14px;height:14px;opacity:.95;animation:sb-rip .45s ease-out forwards}
+.sb-ripple.release{border-color:#79c0ff}
+@keyframes sb-rip{from{width:14px;height:14px;opacity:.95}to{width:64px;height:64px;opacity:0}}
+
+/* retro mini klavye */
+#minikbd{height:104px;flex:none;background:var(--panel);display:flex;flex-direction:column;
+  border-top:1px solid var(--line)}
+.kbd-title{font-size:8px;color:var(--dim);padding:3px 8px;letter-spacing:2px;display:flex;
+  justify-content:space-between;align-items:center}
+.kbd-rows{flex:1;display:flex;flex-direction:column;gap:3px;padding:0 6px 6px}
+.krow{flex:1;display:flex;gap:3px;min-height:0}
+.key{flex:1;background:var(--panel2);border:1px solid #243244;border-radius:4px;color:var(--txt);
+  font-size:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  font-family:inherit;min-width:0;overflow:hidden}
+.key:active{background:var(--acc);color:#04170c}
+.key.wide{flex:1.8}
+.key.xxwide{flex:5}
+.key.mod{color:var(--acc);font-size:9px}
+.key.mod.sticky{background:var(--acc);color:#04170c;border-color:var(--acc)}
+.key.tall-label{font-size:8px}
+
+/* topbar */
+#topbar{height:34px;flex:none;background:var(--panel);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;padding:0 6px;gap:4px}
+#topbar .pcname{font-size:11px;color:var(--acc);flex:1;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;letter-spacing:1px}
+.tb-btn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;
+  padding:5px 9px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.tb-btn.on{background:var(--acc);color:#04170c;border-color:var(--acc)}
+.tb-btn:active{opacity:.7}
+
+/* settings drawer */
+#drawer{position:absolute;top:0;right:-78%;width:76%;max-width:340px;height:100%;background:var(--panel);
+  border-left:1px solid var(--line);z-index:50;transition:right .22s ease;display:flex;flex-direction:column}
+#drawer.open{right:0}
+#drawer .d-head{padding:12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+#drawer .d-head b{font-size:13px;letter-spacing:1px}
+#drawer .d-body{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;
+  touch-action:pan-y;user-select:text;-webkit-user-select:text}
+.sec{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}
+.sec h4{font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px}
+.sec .row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px}
+.sec .row .v{color:var(--acc)}
+input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
+.slider-row{display:flex;flex-direction:column;gap:2px;padding:4px 0}
+.slider-row .lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--dim)}
+#latency{font-size:10px;color:var(--dim);text-align:center;padding:4px}
+
+/* dosya aktarımı */
+.mini{background:var(--panel2);border:1px solid var(--line);color:var(--acc);font-size:10px;
+  padding:4px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.mini:active{background:var(--acc);color:#000}
+#up-list,#dl-list{margin-top:6px;max-height:110px;overflow-y:auto}
+#up-list .row,#dl-list .row{font-size:10px;gap:6px}
+#file-list-modal,#archive-modal,#notif-modal,#fs-modal{position:absolute;inset:0;background:#000a;z-index:120;display:none;align-items:center;justify-content:center;padding:16px}
+#file-list-modal.open,#archive-modal.open,#notif-modal.open,#fs-modal.open{display:flex}
+#mon-strip{position:absolute;top:6px;left:6px;display:flex;gap:4px;align-items:center;z-index:30}
+#scrollbar{position:absolute;right:2px;top:10%;height:80%;width:16px;background:#0006;border-radius:8px;z-index:31;display:flex;justify-content:center;touch-action:none}
+#scrollbar-thumb{width:10px;height:34px;background:var(--acc);opacity:.55;border-radius:5px;margin-top:0;transition:opacity .2s}
+#scrollbar:active #scrollbar-thumb{opacity:.9}
+#mon-strip .mon-cell{background:#0009;border:1px solid var(--line);border-radius:6px;padding:2px 4px;text-align:center;font-size:8px;color:var(--txt);cursor:pointer}
+#mon-strip .mon-cell img{width:72px;height:44px;object-fit:cover;border-radius:3px;display:block}
+#mon-strip .mon-cell .ph{width:72px;height:44px;line-height:44px;color:var(--dim)}
+#mon-strip:not(.open) .mon-cell{display:none}
+.arch-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.arch-item img{width:64px;height:38px;object-fit:cover;border-radius:4px;border:1px solid var(--line)}
+.arch-item .arch-name{flex:1;font-size:10px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fm-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;width:100%;max-width:420px;max-height:70%;overflow:hidden;display:flex;flex-direction:column}
+.fm-head{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);font-size:11px}
+#file-list-body{overflow-y:auto;padding:4px 10px}
+
+/* QR tarayıcı */
+#qr-modal{position:absolute;inset:0;background:rgba(0,0,0,.9);z-index:60;display:none;align-items:center;justify-content:center}
+#qr-modal.open{display:flex}
+.qr-box{background:var(--panel);border:1px solid var(--line);border-radius:10px;width:100%;max-width:420px;max-height:80%;display:flex;flex-direction:column;overflow:hidden}
+.qr-head{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);font-size:11px}
+.qr-body{padding:10px;display:flex;flex-direction:column;gap:8px;align-items:center}
+#qr-video{width:100%;max-height:50%;border-radius:8px;background:#000;object-fit:cover}
+#qr-status{color:var(--dim);font-size:11px;text-align:center;min-height:14px}
+
+/* toast */
+#toast{position:absolute;bottom:18%;left:50%;transform:translateX(-50%);background:#000c;
+  border:1px solid var(--line);color:var(--txt);padding:8px 14px;border-radius:20px;font-size:11px;
+  opacity:0;transition:opacity .25s;pointer-events:none;z-index:99;white-space:nowrap;max-width:90%;
+  overflow:hidden;text-overflow:ellipsis}
+#toast.on{opacity:1}
+
+/* yatay uyari (dikey modda) */
+#rotate-hint{position:absolute;inset:0;background:var(--bg);z-index:200;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px}
+#rotate-hint .ph{font-size:44px;animation:rot 2s ease-in-out infinite}
+@keyframes rot{0%,100%{transform:rotate(0)}50%{transform:rotate(90deg)}}
+#rotate-hint p{color:var(--dim);font-size:12px}
+@media (orientation:portrait){ #rotate-hint{display:flex} }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- bağlanma ekranı -->
+  <div id="scr-connect" class="screen on">
+    <div class="logo">▚▞ PANPIKONTROL</div>
+    <div class="sub">telefon → bilgisayar uzaktan kontrol</div>
+    <div class="field"><label>BİLGİSAYAR ADRESİ (ör: 192.168.1.5:4848)</label>
+      <input id="in-addr" inputmode="url" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="192.168.1.5:4848"></div>
+    <div class="field"><label>6 HANELİ EŞLEŞTİRME KODU</label>
+      <input id="in-code" inputmode="latin" maxlength="6" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ABC123" style="text-transform:uppercase;letter-spacing:6px;text-align:center;font-size:20px"></div>
+    <button class="btn" id="btn-pair">CİHAZI EŞLEŞTİR</button>
+    <button class="btn ghost" id="btn-scan">📷 KOD TARA (QR)</button>
+    <button class="btn ghost" id="btn-connect" style="display:none">YENİDEN BAĞLAN</button>
+    <div id="conn-status"></div>
+  </div>
+
+  <!-- ana kontrol ekranı -->
+  <div id="scr-main" class="screen">
+    <div id="topbar">
+      <button class="tb-btn" id="btn-screen">▶ EKRAN</button>
+      <button class="tb-btn" id="btn-fps" style="display:none">10 fps</button>
+      <button class="tb-btn" id="btn-audio" title="PC sesi">🔊</button>
+      <button class="tb-btn" id="btn-night" title="Gece modu (düşük ışık)">🌙</button>
+      <div class="pcname" id="pc-name">—</div>
+      <button class="tb-btn" id="btn-lat">0ms</button>
+      <button class="tb-btn" id="btn-menu">☰</button>
+    </div>
+
+    <div id="screenbar">
+      <canvas id="screen-canvas"></canvas>
+      <div id="screen-off"><div class="big">🖥️</div><div>EKRAN AKIŞI KAPALI</div><div style="font-size:9px">▼ üstteki EKRAN butonuyla aç</div></div>
+      <div id="mon-strip"><button class="tb-btn" id="btn-mon-strip" title="monitör şeridi">🖥</button></div>
+      <div id="scrollbar" title="kaydırma çubuğu"><div id="scrollbar-thumb"></div></div>
+    </div>
+
+    <div id="kbd-layer">
+      <div id="touchpad">
+        <div id="tp-hint">EKRAN: TAP=TIK · BASILI SÜRÜKLE=TAŞI · UZUN BAS=TUT SÜRÜKLE<br>TUTUP SÜRÜKLE = SÜRÜKLE-BIRAK · İKİ PARMAK = SCROLL</div>
+        <div id="cursor-dot"></div>
+      </div>
+
+      <div id="minikbd">
+        <div class="kbd-title"><span>⌨ 1980 MINI-TERM</span><span id="mod-state"></span></div>
+        <div class="kbd-rows">
+          <div class="krow">
+            <div class="key mod" data-mod="ctrl">CTRL</div>
+            <div class="key mod" data-mod="alt">ALT</div>
+            <div class="key mod" data-mod="shift">SHIFT</div>
+            <div class="key mod" data-mod="win">WIN</div>
+            <div class="key" data-act="esc">ESC</div>
+            <div class="key" data-act="tab">TAB</div>
+            <div class="key" data-vk="46">DEL</div>
+            <div class="key" data-vk="8" data-ext="1">⌫</div>
+          </div>
+          <div class="krow">
+            <div class="key" data-vk="219">[</div><div class="key" data-vk="221">]</div>
+            <div class="key" data-vk="186">;</div><div class="key" data-vk="222">'</div>
+            <div class="key" data-vk="188">,</div><div class="key" data-vk="190">.</div>
+            <div class="key" data-vk="191">/</div><div class="key" data-vk="220">\</div>
+            <div class="key" data-vk="20">CAPS</div>
+          </div>
+          <div class="krow">
+            <div class="key" data-vk="112">F1</div><div class="key" data-vk="113">F2</div>
+            <div class="key" data-vk="114">F3</div><div class="key" data-vk="115">F4</div>
+            <div class="key" data-vk="116">F5</div><div class="key" data-vk="117">F6</div>
+            <div class="key" data-vk="118">F7</div><div class="key" data-vk="119">F8</div>
+            <div class="key" data-vk="45">INS</div>
+          </div>
+          <div class="krow">
+            <div class="key wide" data-vk="37" data-ext="1">←</div>
+            <div class="key" data-vk="38" data-ext="1">↑</div>
+            <div class="key" data-vk="40" data-ext="1">↓</div>
+            <div class="key wide" data-vk="39" data-ext="1">→</div>
+            <div class="key" data-vk="36" data-ext="1">HOM</div>
+            <div class="key" data-vk="35" data-ext="1">END</div>
+            <div class="key" data-vk="33" data-ext="1">PG↑</div>
+            <div class="key" data-vk="34" data-ext="1">PG↓</div>
+            <div class="key" data-vk="13" data-ext="1">⏎</div>
+          </div>
+          <div class="krow">
+            <div class="key" data-act="type">Aa yaz</div>
+            <div class="key xxwide" data-act="space">BOŞLUK</div>
+            <div class="key" data-act="ctrlaltend">CAD</div>
+            <div class="key wide" data-act="win">⊞</div>
+            <div class="key" data-act="alttab">ALT↹</div>
+          </div>
+          <div class="krow">
+            <div class="key" data-act="mic" id="btn-mic" title="PC'ye mikrofon">🎙</div>
+            <div class="key" data-vk="179" title="Play/Pause">⏯</div>
+            <div class="key" data-vk="176">⏭</div>
+            <div class="key" data-vk="177">⏮</div>
+            <div class="key" data-vk="175">⏹</div>
+            <div class="key" data-vk="174">🔇</div>
+            <div class="key" data-vk="173">🔉</div>
+            <div class="key" data-vk="172">🔊</div>
+            <div class="key" data-act="clip-get" title="PC panosunu al">📥</div>
+            <div class="key" data-act="clip-set" title="PC'ye yapıştır">📤</div>
+            <div class="key" data-act="mon" title="Monitör değiştir">🖥</div>
+            <div class="key" data-act="kbd-layout" id="kbd-layout" title="Klavye düzeni (TR/EN)">TR</div>
+            <div class="key" data-act="macro-edit" title="Makroları düzenle">M</div>
+            <div class="key" data-act="cam" id="btn-cam" title="Telefon kamerası → PC">📷</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ayar çekmecesi -->
+    <div id="drawer">
+      <div class="d-head"><b>AYARLAR</b><button class="tb-btn" id="btn-drawer-close">✕</button></div>
+      <div class="d-body">
+        <div class="sec"><h4>EKRAN AKIŞI</h4>
+          <div class="slider-row"><div class="lbl"><span> FPS</span><span id="v-fps">10</span></div>
+            <input type="range" id="s-fps" min="2" max="30" step="1" value="10"></div>
+          <div class="slider-row"><div class="lbl"><span>GÖRÜNTÜ ÖLÇEĞİ</span><span id="v-q">0.65x</span></div>
+            <input type="range" id="s-q" min="30" max="100" step="5" value="65"></div>
+          <div class="row"><span>Sıkışma olmadan</span><span class="v" id="v-res">Otomatik</span></div>
+        </div>
+        <div class="sec"><h4>SES (PC HOPARLÖRÜ)</h4>
+          <div class="slider-row"><div class="lbl"><span>SES SEVİYESİ</span><span id="v-vol">70%</span></div>
+            <input type="range" id="s-vol" min="0" max="100" step="5" value="70"></div>
+          <div class="row"><span>Gecikme</span><span class="v">~60ms</span></div>
+        </div>
+        <div class="sec"><h4>DOSYALAR</h4>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="mini" id="btn-f-send">📤 GÖNDER</button>
+            <button class="mini" id="btn-f-shot">📸 EKRAN AL</button>
+            <button class="mini" id="btn-f-list">📂 PC LİSTESİ</button>
+            <button class="mini" id="btn-fs-open">🗂 GEZGİN</button>
+            <button class="mini" id="btn-arch">🖼 ARŞİV</button>
+          </div>
+          <div id="up-list"></div>
+          <div id="dl-list"></div>
+          <div style="font-size:9px;color:var(--dim);margin-top:4px">PC tarafı: İndirilenler\PanpiKontrol · uçtan uca şifreli</div>
+        </div>
+        <div class="sec"><h4>MOUSE</h4>
+          <div class="slider-row"><div class="lbl"><span>İMLEÇ HIZI</span><span id="v-spd">1.6x</span></div>
+            <input type="range" id="s-spd" min="5" max="40" step="1" value="16"></div>
+          <div class="row"><span>Dokunmayla tık gecikmesi</span><span class="v" id="v-tap">150ms</span></div>
+        </div>
+        <div class="sec"><h4>BAĞLANTI</h4>
+          <div class="row"><span>Cihaz</span><span class="v" id="d-name">—</span></div>
+          <div class="row"><span>Gecikme</span><span class="v" id="d-lat">—</span></div>
+          <div class="row"><span>Akı:</span><span class="v" id="d-kbps">—</span></div>
+          <div class="row"><span>Sürüm</span><span class="v" id="d-ver">—</span></div>
+          <button class="btn ghost" id="btn-forget" style="margin-top:8px">CİHAZI UNUT (tokenı sil)</button>
+        </div>
+        <div class="sec"><h4>SİSTEM (CANLI)</h4>
+          <div class="row"><span>CPU</span><span class="v" id="st-cpu">—</span></div>
+          <div class="row"><span>RAM</span><span class="v" id="st-mem">—</span></div>
+          <div class="row"><span>Açık kalma</span><span class="v" id="st-up">—</span></div>
+          <div class="row"><span>Toplam oturum</span><span class="v" id="st-sess">—</span></div>
+          <div class="row"><span>Kare gönderildi</span><span class="v" id="st-frames">—</span></div>
+          <div class="row"><span>Veri (gönderilen)</span><span class="v" id="st-bytes">—</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button class="mini" id="btn-pw-lock">🔒 KİLİT</button>
+            <button class="mini" id="btn-pw-restart">🔄 YENİDEN</button>
+            <button class="mini" id="btn-pw-off" style="color:var(--warn)">⏻ KAPAT</button>
+          </div>
+          <div id="pw-battery" style="display:none;margin-top:6px">
+            <div class="row"><span>Pil</span><span class="v" id="pw-pct">—</span></div>
+          </div>
+          <div id="pw-plans" style="margin-top:6px"></div>
+          <div style="font-size:9px;color:var(--dim);margin-top:4px">Kapat/yeniden başlat için 5 sn gecikme + onay gerekir.</div>
+        </div>
+        <div class="sec"><h4>BİLDİRİMLER <span class="mini" id="notif-badge" style="display:none;background:var(--warn);color:#fff;border-radius:8px;padding:1px 6px;margin-left:6px">0</span></h4>
+          <button class="mini" id="btn-notif" style="margin-top:8px">🔔 BİLDİRİMLERİ GÖR</button>
+          <button class="mini" id="btn-hist" style="margin-top:8px">📜 OTURUM GEÇMİŞİ</button>
+        </div>
+        <div class="sec" id="game-badge" style="display:none"><h4 style="color:var(--acc)">🎮 OYUN MODU AKTİF</h4>
+          <div style="font-size:9px;color:var(--dim)">PC tam ekranda oyun çalışıyor — akış otomatik kısıldı.</div>
+        </div>
+        <div class="sec"><h4>HASSAS İMLEÇ <span id="acc-badge" style="display:none;background:var(--acc);color:#04120a;border-radius:8px;padding:1px 6px;margin-left:6px;font-size:9px">AKTİF</span></h4>
+          <div style="font-size:9px;color:var(--dim)">Uzaktan fare kontrolünde Windows fare ivmesini otomatik kapatır (birebir 1:1 imleç). Kontrol bitince 30 sn sonra eski ayara döner. Bilgisayar başındayken normal his için kapat.</div>
+          <button class="mini" id="acc-toggle" style="margin-top:8px">KAPALI</button>
+        </div>
+        <div class="sec"><h4>UYGULAMALAR</h4>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button class="mini" id="btn-apps">📋 LİSTELE</button>
+          </div>
+          <input id="app-search" placeholder="ara…" style="width:100%;margin-top:6px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:4px 6px;font-size:10px">
+          <div id="app-list" style="margin-top:6px;font-size:10px;max-height:180px;overflow-y:auto"></div>
+        </div>
+        <div class="sec"><h4>SES MİKSERİ</h4>
+          <div class="row"><span>Ana ses</span><span class="v" id="mx-master">—</span></div>
+          <input type="range" id="mx-master-slider" min="0" max="100" value="70" style="width:100%;margin-top:6px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+            <button class="mini" id="btn-mx-master-mute">🔇 ANA SESSİZ</button>
+            <button class="mini" id="btn-mx-refresh">🔄 UYGULAMALAR</button>
+          </div>
+          <div id="mx-apps" style="margin-top:6px;font-size:10px;color:var(--dim)"></div>
+        </div>
+        <div class="sec"><h4>🎵 PC SES ÇALARI</h4>
+          <div id="mp-now" style="font-size:10px;color:var(--dim);margin-bottom:4px">çalan yok — gezginden ▶ ile başlat</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="mini" id="btn-mp-pause">⏸ DURAKLAT</button>
+            <button class="mini" id="btn-mp-resume">▶ DEVAM</button>
+            <button class="mini" id="btn-mp-stop" style="color:var(--warn)">⏹ DURDUR</button>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+            <button class="mini" id="btn-mp-shuffle">🔀 KARIŞTIR: KAPALI</button>
+            <button class="mini" id="btn-mp-repeat">🔁 TEKRAR: KAPALI</button>
+          </div>
+          <div class="row" style="margin-top:6px"><span>Konum</span><span class="v" id="mp-pos">—</span></div>
+        </div>
+        <div class="sec"><h4>🛑 GÖREVLER (PC SÜREÇLERI)</h4>
+          <button class="mini" id="btn-proc" style="margin-top:4px">🔄 SÜREÇLERİ GETİR</button>
+          <div id="proc-list" style="margin-top:6px;font-size:10px;max-height:160px;overflow-y:auto"></div>
+        </div>
+        <div class="sec"><h4>⬆ GÜNCELLEME</h4>
+          <div class="row"><span>Durum</span><span class="v" id="upd-state">—</span></div>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <button class="mini" id="btn-upd-check">🔄 KONTROL</button>
+            <button class="mini" id="btn-upd-apply" style="display:none;color:var(--warn)">⬆ YÜKLE</button>
+          </div>
+          <div id="upd-notes" style="font-size:9px;color:var(--dim);margin-top:4px"></div>
+        </div>
+        <div class="sec"><h4>🪟 PENCERE</h4>
+          <div class="row"><span>Ön plan</span><span class="v" id="win-title">—</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+            <button class="mini" id="btn-win-refresh">🔄 BUL</button>
+            <button class="mini" id="btn-win-min">⬇ KÜÇÜLT</button>
+            <button class="mini" id="btn-win-max">⬆ TAM EKRAN</button>
+            <button class="mini" id="btn-win-close" style="color:var(--warn)">✕ KAPAT</button>
+          </div>
+        </div>
+        <div class="sec"><h4>🎬 H.264 DONANIM AKIŞI</h4>
+          <div class="row"><span>Durum</span><span class="v" id="h264-state">—</span></div>
+          <button class="mini" id="btn-h264-install" style="margin-top:4px">📥 MFP KUR (UAC GEREKLİ)</button>
+          <div style="font-size:9px;color:var(--dim);margin-top:4px">PC'de UAC penceresi açılır — onaylayın. Kurulum 1-5 dk. Sonra durumu yenileyin.</div>
+        </div>
+        <div class="sec"><h4>⌨ KISAYOLLAR</h4>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+            <button class="mini" data-combo="LWIN,D">🖥 MASAÜSTÜ</button>
+            <button class="mini" data-combo="LALT,TAB">🔄 PENCERE DEĞİŞTİR</button>
+            <button class="mini" data-combo="LWIN">⊞ BAŞLAT</button>
+            <button class="mini" data-combo="LWIN,L">🔒 KİLİT</button>
+            <button class="mini" data-combo="PRINTSCREEN">📷 EKRAN GÖRÜNTÜSÜ</button>
+            <button class="mini" data-combo="PLAYPAUSE">⏯ OYNAT/DURAKLAT</button>
+            <button class="mini" data-combo="VOLPLUS">🔊 SES +</button>
+            <button class="mini" data-combo="VOLMINUS">🔉 SES −</button>
+            <button class="mini" data-combo="MUTE">🔇 SESSİZ</button>
+          </div>
+          <div style="font-size:9px;color:var(--dim);margin-top:4px">PC'ye klavye kısayolu gönderir.</div>
+        </div>
+        <div class="sec"><h4>EKRAN</h4>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button class="mini" id="btn-scr-off">🌙 ŞİMDİ KAPAT</button>
+            <button class="mini" data-scr="5">5 DK</button>
+            <button class="mini" data-scr="15">15 DK</button>
+            <button class="mini" data-scr="30">30 DK</button>
+            <button class="mini" id="btn-scr-cancel">İPTAL</button>
+          </div>
+          <div style="font-size:9px;color:var(--dim);margin-top:4px">PC'de fare/klavye hareketi ekranı geri açar.</div>
+        </div>
+        <div class="sec"><h4>WAKE-ON-LAN (PC'Yİ UYANDIR)</h4>
+          <div class="row"><span>Kayıtlı MAC</span><span class="v" id="d-mac">—</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+            <button class="mini" id="btn-wol">⚡ UYANDIR</button>
+            <button class="mini" id="btn-wol-save">💾 MAC KAYDET</button>
+          </div>
+          <div style="font-size:9px;color:var(--dim);margin-top:4px">PC kapalıyken bile aynı ağdaysa açar; MAC'i bir kez kaydet.</div>
+        </div>
+        <div id="latency">AES-256-GCM · WSS · whitelist 2 cihaz</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="file-list-modal"><div class="fm-box">
+      <div class="fm-head"><b>PC · İNDİRILENLER\PANPIKONTROL</b><button class="mini" id="btn-fm-close">✕</button></div>
+      <div id="file-list-body"></div>
+    </div></div>
+  <div id="qr-modal"><div class="qr-box">
+      <div class="qr-head"><b>📷 PC EKRANINDAKİ QR'I OKUT</b><button class="mini" id="btn-qr-close">✕</button></div>
+      <div class="qr-body">
+        <video id="qr-video" playsinline muted></video>
+        <div id="qr-status">kamera başlatılıyor…</div>
+      </div>
+    </div></div>
+  <div id="archive-modal"><div class="fm-box">
+      <div class="fm-head"><b>🖼 EKRAN GÖRÜNTÜSÜ ARŞİVİ (telefonda)</b><button class="mini" id="btn-arch-close">✕</button></div>
+      <div id="arch-body"></div>
+    </div></div>
+  <div id="notif-modal"><div class="fm-box">
+      <div class="fm-head"><b>🔔 PC BİLDİRİMLERİ</b><button class="mini" id="btn-notif-close">✕</button></div>
+      <div id="notif-list" style="overflow-y:auto;padding:8px"></div>
+    </div></div>
+  <div id="hist-modal"><div class="fm-box">
+      <div class="fm-head"><b>📜 OTURUM GEÇMİŞİ (PC)</b><button class="mini" id="btn-hist-close">✕</button></div>
+      <div id="hist-list" style="overflow-y:auto;padding:8px;font-size:10px;max-height:60vh"></div>
+    </div></div>
+  <div id="fs-modal"><div class="fm-box">
+      <div class="fm-head"><b>📁 PC GEZGİNİ</b><span style="flex:1"></span><button class="mini" id="btn-fs-new">＋</button><button class="mini" id="btn-fs-close">✕</button></div>
+      <div id="fs-body" style="overflow-y:auto;padding:8px;font-size:11px"></div>
+    </div></div>
+  <div id="toast"></div>
+  <div id="rotate-hint"><div class="ph">📱</div><p>Telefonu <b>yatay</b> çevir<br>(kontroller yatay için tasarlandı)</p></div>
+</div>
+
+<script src="jsqr.js"></script>
+<script>
+'use strict';
+/* ================= yardımcılar ================= */
+const $=id=>document.getElementById(id);
+let toastT=0;
+function toast(m,ms=1600){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms)}
+function vibrate(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(_){}}
+function load(k,d){try{const v=localStorage.getItem('pk_'+k);return v===null?d:JSON.parse(v)}catch(_){return d}}
+function save(k,v){try{localStorage.setItem('pk_'+k,JSON.stringify(v))}catch(_){}}
+
+/* ================= kripto: AES-256-GCM (WebCrypto) ================= */
+async function deriveKey(token,clientNonce,serverNonce){
+  const enc=new TextEncoder();
+  // ikm = HMAC-SHA256(token, clientNonce||serverNonce) — PC tarafıyla birebir aynı
+  const keyIkm=await crypto.subtle.importKey('raw',enc.encode(token),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const ikm=await crypto.subtle.sign('HMAC',keyIkm,concat(clientNonce,serverNonce));
+  const base=await crypto.subtle.importKey('raw',ikm,'HKDF',false,['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'HKDF',hash:'SHA-256',salt:concat(clientNonce,serverNonce),info:enc.encode('panpikontrol/v1')},
+    base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+function concat(a,b){const r=new Uint8Array(a.length+b.length);r.set(a);r.set(b,a.length);return r}
+function ctrBytes(n){const b=new Uint8Array(8);let v=BigInt(n);for(let i=7;i>=0;i--){b[i]=Number(v&255n);v>>=8n}return b}
+async function sealPkt(key,ctr,plain,aad){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad,tagLength:128},key,plain));
+  const head=ctrBytes(ctr);const out=new Uint8Array(8+12+ct.length);
+  out.set(head,0);out.set(iv,8);out.set(ct,20);return out;
+}
+async function openPkt(key,buf,aad){
+  try{
+    const b=new Uint8Array(buf);if(b.length<8+12+16)return null;
+    const iv=b.slice(8,20);const ct=b.slice(20);
+    const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:aad,tagLength:128},key,ct);
+    return new Uint8Array(plain);
+  }catch(_){return null}
+}
+const aadOf=ctr=>ctrBytes(ctr); // AAD = 8B sayaç (PC ile aynı)
+
+/* ================= durum ================= */
+const S={
+  ws:null,key:null,tx:0,rx:0,authed:false,pcName:'—',
+  screenOn:false,fps:load('fps',10),q:load('q',65),
+  spd:load('spd',16)/10,tapMs:150,
+  mods:{ctrl:0,alt:0,shift:0,win:0},
+  stats:{frames:0,bytes:0,last:0},
+  pingT:0,pingStart:0,latency:0,
+  reconnectT:0,gaveUp:false,
+  canvas:$('screen-canvas'),ctx:null,imgUrl:null,
+  audioOn:false,audioCtx:null,agc:null,gain:null,silT:0,
+  audioQ:[],audioSchedT:0,audioPlaying:false,nextAt:0,
+  upQ:[],upFile:null,upGot:0,upBusy:false,upId:0,
+  dlMap:{},shots:{},dlBusy:false,
+  micOn:false,micCtx:null,micProc:null,micSrc:null,micBeginSent:false,micId:0,micAck:false,micQ:[],micStartT:0,
+  zoom:1,pinchD:0,momV:0,momT:0,frameW:0,frameH:0,
+  micLive:false,statsT:0,relayUrl:'',lanAddr:'',
+  wakeLock:null,rcTries:0,
+};
+S.ctx=S.canvas.getContext('2d');
+
+/* ================= wake lock (ekran açık kalsın) ================= */
+async function requestWake(){
+  try{
+    if(S.wakeLock&&!S.wakeLock.released)return;
+    if('wakeLock' in navigator){
+      S.wakeLock=await navigator.wakeLock.request('screen');
+      S.wakeLock.addEventListener('release',()=>{S.wakeLock=null});
+    }
+  }catch(_){/* desteklenmiyorsa sessizce geç */}
+}
+async function releaseWake(){
+  try{ if(S.wakeLock){ await S.wakeLock.release(); } }catch(_){}
+  S.wakeLock=null;
+}
+
+/* ================= bağlan ================= */
+function addrOf(){return load('addr','')}
+function tokenOf(){return load('token','')}
+
+function setStatus(msg,isErr){const el=$('conn-status');el.textContent=msg;el.classList.toggle('err',!!isErr)}
+
+function tlsForced(){return load('forceTLS','')==='1'}
+
+async function pairAndConnect(){
+  const addr=$('in-addr').value.trim().replace(/^https?:\/\//,'');
+  const code=$('in-code').value.trim().toUpperCase();
+  if(!addr||!code){setStatus('adres ve kod gerekli',1);return}
+  save('addr',addr);
+  setStatus('eşleştiriliyor…');
+  try{
+    const base=location.protocol==='https:'||tlsForced()||/\.trycloudflare\.com/i.test(addr)?`https://${addr}`:`http://${addr}`;
+    const r=await fetch(`${base}/pair`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code,name:'Telefon'})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){setStatus(j.error||('eşleştirme başarısız ('+r.status+')'),1);return}
+    save('token',j.token);save('devname',j.name);
+    setStatus('eşleştirildi ✓ bağlanıyor…');
+    connectWS();
+  }catch(e){setStatus('bilgisayara ulaşılamadı: '+e.message,1)}
+}
+
+function connectWS(){
+  const inp=$('in-addr').value.trim().replace(/^https?:\/\//,'');
+  if(inp)save('addr',inp);
+  const addr=inp||addrOf(),token=tokenOf();
+  if(!addr||!token){setStatus('önce eşleştir',1);return}
+  setStatus('bağlanıyor…');
+  clearTimeout(S.reconnectT);
+  const base=location.protocol==='https:'||tlsForced()||/\.trycloudflare\.com/i.test(addr)?`wss://${addr}`:`ws://${addr}`;
+  let ws;
+  try{ws=new WebSocket(`${base}/ws?token=${encodeURIComponent(token)}`)}
+  catch(e){setStatus('adres hatalı',1);return}
+  ws.binaryType='arraybuffer';
+  S.ws=ws;S.authed=false;S.gaveUp=false;S.key=null;S.tx=0;S.rx=0;S.binQ=[];
+
+  ws.onopen=async()=>{
+    const clientNonce=crypto.getRandomValues(new Uint8Array(16));
+    S.clientNonce=clientNonce;
+    ws.send(JSON.stringify({t:'session',clientNonce:b64u(clientNonce)}));
+    // serverNonce hello'da (düz metin) gelecek; ready ise ŞİFRELİ binary gelir
+  };
+  ws.onmessage=async(ev)=>{
+    if(!(ev.data instanceof ArrayBuffer)){
+      // düz metin: hello / err (yalnızca auth öncesi)
+      let m;try{m=JSON.parse(ev.data)}catch(_){return}
+      if(m.t==='hello'&&!S.key){
+        // --- sunucu kimliği (sertifika pinning) ---
+        const fpNow=String(m.fp||'').replace(/\s+/g,'');
+        const fpSaved=load('serverfp','');
+        const fpQR=load('pairfp',''); // QR'dan gelen 8 haneli önek (eşleştirme anı)
+        if(fpQR&&fpNow&&!fpNow.startsWith(fpQR)){
+          setStatus('⚠ GÜVENLİK: sunucu kimliği QR ile eşleşmiyor!',1);
+          try{ws.close()}catch(_){}
+          return;
+        }
+        if(fpSaved&&fpNow&&fpNow!==fpSaved){
+          setStatus('⚠ GÜVENLİK: sunucu kimliği değişti! (MITM?) Cihazı unutup yeniden eşleştir.',1);
+          try{ws.close()}catch(_){}
+          return;
+        }
+        if(fpNow&&!fpSaved)save('serverfp',fpNow); // TOFU: ilk doğrulanmış bağlantı
+        S.serverNonce=u8(b64dec(m.serverNonce));
+        S.key=await deriveKey(tokenOf(),S.clientNonce,S.serverNonce);
+        // hello beklerken kuyruğa alınan şifreli paketleri işle (ready burada!)
+        const q=S.binQ.splice(0);
+        for(const d of q)await processBin(d);
+        if(S.audioOn)send({t:'audio',on:true});
+      }else if(m.t==='err'){S.authed?toast(m.msg):setStatus(m.msg,1)}
+      return;
+    }
+    // şifreli bölge: [8B ctr][12B iv][ct][16B tag]
+    if(!S.key){S.binQ.push(ev.data);return} // anahtar türetilene kadar kuyrukla
+    await processBin(ev.data);
+  };
+  async function processBin(buf){
+    const ctr=Number(new DataView(buf).getBigUint64(0));
+    if(ctr<=S.rx)return; // replay engeli
+    const plain=await openPkt(S.key,buf,aadOf(ctr));
+    if(!plain)return;
+    S.rx=ctr;
+    let m=null;try{m=JSON.parse(new TextDecoder().decode(plain))}catch(_){}
+    if(!m){handlePlain(plain);return}
+    handleMsg(m);
+  }
+  ws.onclose=()=>{
+    stopPing();stopStats();
+    releaseWake();
+    if(S.gaveUp)return;
+    S.authed=false;
+    S.audioPlaying=false;S.nextAt=0;S.audioQ=[];
+    S.upBusy=false;S.upFile=null;S.dlBusy=false;
+    if(S.micOn){S.micOn=false;S.micAck=false;S.micBeginSent=false;S.micQ=[];try{S.micProc&&S.micProc.disconnect()}catch(_){}try{S.micCtx&&S.micCtx.close()}catch(_){}S.micCtx=null;S.micProc=null;S.micSrc=null;setMicBtn()}
+    if($('scr-main').classList.contains('on')){
+      // üstel geri çekilme: 2s → 4s → 8s → 15s (max), başarıda sıfırlanır
+      const d=Math.min(15000,2000*Math.pow(2,S.rcTries++));
+      // akıllı adres değişimi: mevcut adres 2 kez üst üste tutmadıysa diğer yola geç
+      // (LAN ↔ trycloudflare relay) — ev dışına çıkınca/inince otomatik bulur
+      if(S.rcTries>=2){
+        const cur=$('in-addr').value.trim();
+        const isRelay=/\.trycloudflare\.com/i.test(cur);
+        const other=isRelay?(S.lanAddr||''):(S.relayUrl||'');
+        if(other){
+          if(!isRelay&&!S.lanAddr)S.lanAddr=cur; // LAN adresini hatırla
+          $('in-addr').value=other.replace(/^https?:\/\//,'').replace(/\/+$/,'');save('addr',$('in-addr').value);
+          S.rcTries=0;
+          toast(isRelay?'🏠 LAN adresine geçiliyor…':'📡 mobil erişime geçiliyor…');
+        } else {
+          // başka yol bilinmiyor → keşif dosyasından dene
+          discoverAddr().then(f=>{if(f&&f!==cur){$('in-addr').value=f;save('addr',f);S.rcTries=0;toast('📡 keşif: yeni adres bulundu')}});
+        }
+      }
+      toast('bağlantı koptu, '+Math.round(d/1000)+' sn sonra yeniden…');
+      S.reconnectT=setTimeout(connectWS,d);
+    }else{setStatus('bağlantı kurulamadı',1)}
+  };
+  ws.onerror=()=>{};
+  ws.addEventListener('close',(ev)=>{ // 4xx kapanışta nedeni göster (sessiz yeniden deneme tuzağını önler)
+    if(ev.code===423)setStatus('🔒 güvenlik kilidi: PC 2 dk reddediyor (yanlış kod denemeleri) — bekleyip tekrar dene',1);
+    else if(ev.code===4003)setStatus('🔒 PC güvenlik kilidi — bağlantı reddedildi',1);
+  });
+}
+function b64u(u8){let s='';for(const b of u8)s+=String.fromCharCode(b);return btoa(s)}
+function b64dec(s){const bin=atob(s.replace(/-/g,'+').replace(/_/g,'/'));const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
+function u8(x){return x instanceof Uint8Array?x:new Uint8Array(x)}
+
+async function send(obj,bin){
+  if(!S.ws||S.ws.readyState!==1||!S.authed||!S.key)return;
+  const ctr=++S.tx;
+  const body=bin?bin:new TextEncoder().encode(JSON.stringify(obj));
+  const pkt=await sealPkt(S.key,ctr,body,aadOf(ctr));
+  S.ws.send(pkt);
+}
+
+/* ================= ham şifreli paketler (etiketli) ================= */
+function envParse(b){
+  if(b.length<3)return null;
+  const tag=b[0];const ml=b[1]|(b[2]<<8);const meta=ml?JSON.parse(new TextDecoder().decode(b.subarray(3,3+ml))):{};
+  return {tag,meta,payload:b.subarray(3+ml)};
+}
+function handlePlain(b){ // JSON çözülemedi: etiketli ham binary
+  let e;try{e=envParse(b)}catch(_){return}
+  if(!e)return;
+  if(e.tag===0x00)handleFrame(e.payload);
+  else if(e.tag===0x01)onFileChunk(e.meta,e.payload);
+  else if(e.tag===0x02)onShot(e.meta,e.payload);
+  else if(e.tag===0x03)onAudioPkt(e.meta,e.payload);
+  else    if(e.tag===0x0B)onMicDataAck(e.payload);
+    else if(e.tag===0x02&&e.meta&&e.meta.wantSmall){/* onShot zaten işler */}
+  else if(e.tag===0x0A)onUploadDataAck(e.payload);
+}
+
+function onMicDataAck(p){/* akış onayı kullanılmıyor */}
+
+/* ================= mikrofon (telefon → PC) ================= */
+function setMicBtn(){
+  const b=$('btn-mic');
+  if(!b)return;
+  if(S.micLive){b.classList.add('on');b.textContent='🔊🎙'} // canlı mod
+  else if(S.micOn){b.classList.add('on');b.textContent='🎙●'}
+  else{b.classList.remove('on');b.textContent='🎙'}
+}
+async function setMic(on){
+  if(on===S.micOn)return;
+  if(on){
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+      const AC=window.AudioContext||window.webkitAudioContext;if(!AC){toast('AudioContext yok');return}
+      S.micCtx=new AC();
+      S.micSrc=S.micCtx.createMediaStreamSource(stream);
+      S.micProc=S.micCtx.createScriptProcessor(4096,1,1);
+      S.micStartT=Date.now();S.micBeginSent=false;S.micAck=false;S.micQ=[];
+      S.micProc.onaudioprocess=ev=>{
+        if(!S.micOn)return;
+        const inp=ev.inputBuffer.getChannelData(0);
+        const pcm=new Int16Array(inp.length);
+        for(let i=0;i<inp.length;i++){const v=Math.max(-1,Math.min(1,inp[i]));pcm[i]=v<0?v*0x8000:v*0x7FFF}
+        const u8=new Uint8Array(pcm.buffer);
+        if(!S.micBeginSent){
+          S.micQ.push(u8);
+          if(S.micQ.length===1&&!S.micBeginSent&&!S.micAck){
+            const id='m'+(++S.micId);
+            send({t:'mic-begin',id,name:'mik-'+new Date(S.micStartT).toISOString().slice(0,19).replace(/[:T]/g,'-')+'.pcm'});
+          }
+        }else sendMicBin(u8);
+      };
+      S.micSrc.connect(S.micProc);S.micProc.connect(S.micCtx.destination);
+      S.micOn=true;setMicBtn();toast('PC mikrofonu AÇIK — konuş');vibrate(15);
+    }catch(e){toast('mik izni yok: '+e.name);S.micOn=false;setMicBtn()}
+  }else{
+    S.micOn=false;
+    if(S.micLive){S.micLive=false;send({t:'mic-live',on:false})}
+    try{S.micProc&&S.micProc.disconnect()}catch(_){}
+    try{S.micSrc&&S.micSrc.disconnect()}catch(_){}
+    try{S.micCtx&&S.micCtx.close()}catch(_){}
+    S.micCtx=null;S.micProc=null;S.micSrc=null;
+    if(S.micBeginSent||S.micAck)send({t:'mic-end'});
+    S.micBeginSent=false;S.micAck=false;S.micQ=[];
+    setMicBtn();vibrate(10);
+  }
+}
+function sendMicBin(u8){
+  const env=new Uint8Array(1+u8.length);env[0]=0x0B;env.set(u8,1);
+  send(null,env);
+}
+function flushMicQueue(){
+  if(!S.micBeginSent&&S.micAck){
+    S.micBeginSent=true;
+    const q=S.micQ.splice(0);
+    for(const pk of q)sendMicBin(pk);
+  }
+}
+
+/* ================= ses akışı (PC hoparlörü) ================= */
+function ensureAudioGraph(){
+  if(S.audioCtx)return;
+  const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+  S.audioCtx=new AC();
+  S.agc=S.audioCtx.createGain();
+  S.gain=S.audioCtx.createGain();
+  S.gain.gain.value=load('vol',70)/100;
+  S.agc.connect(S.gain);S.gain.connect(S.audioCtx.destination);
+}
+function onAudioPkt(meta,pcm){
+  if(!S.audioOn)return;
+  if(meta&&meta.fmt){S.audioRate=meta.rate||48000;S.audioCh=meta.ch||2;return}
+  // gürültü kapısı: düşük amplitüdlü paketleri at (loopback gürültü zemini sürekli veri üretir)
+  let peak=0;
+  for(let i=0;i+1<pcm.length;i+=2){const v=pcm[i]|(pcm[i+1]<<8);const s=(v&0x8000)?v-0x10000:v;const a=s<0?-s:s;if(a>peak)peak=a;if(peak>32)break}
+  const nowT=Date.now();
+  if(peak>=32)S.noiseUntil=nowT+800; // 800ms histerezis
+  else if(nowT>=(S.noiseUntil||0))return; // kapı kapalı: gürültü
+  S.audioQ.push(pcm);
+  if(S.audioQ.length>40){S.audioQ.splice(0,S.audioQ.length-30);S.nextAt=0;S.audioPlaying=false;S.pcmRes=null} // gecikme tavanı
+  scheduleAudio();
+}
+function scheduleAudio(){
+  if(S.audioSchedT||!S.audioCtx||!S.audioQ.length)return;
+  S.audioSchedT=setTimeout(()=>{
+    S.audioSchedT=0;
+    if(S.audioCtx.state==='suspended')S.audioCtx.resume();
+    const RATE=S.audioRate||48000,CH=S.audioCh||2;
+    const FRAMES=1200,CHUNK=FRAMES*CH*2; // bayt
+    if(S.nextAt&&S.nextAt<S.audioCtx.currentTime-0.15){S.audioQ.length=0;S.nextAt=0;S.pcmRes=null} // geride kaldıysa yakala
+    while(S.audioQ.length){
+      let need=CHUNK-(S.pcmRes?S.pcmRes.length:0);
+      if(need>0){
+        const take=Math.min(need,S.audioQ[0].length);
+        if(!S.pcmRes)S.pcmRes=new Uint8Array(CHUNK);
+        S.pcmRes.set(S.audioQ[0].subarray(0,take),CHUNK-need);need-=take;
+        const r=S.audioQ[0];if(take===r.length)S.audioQ.shift();else S.audioQ[0]=r.subarray(take);
+        if(need>0)return; // daha veri yok, bekle
+      }
+      const smp=CHUNK/2,f32=new Float32Array(smp);
+      for(let i=0;i<smp;i++)f32[i]=((S.pcmRes[i*2+1]<<8)|S.pcmRes[i*2])/32768;
+      S.pcmRes=null;
+      const buf=S.audioCtx.createBuffer(2,FRAMES,RATE);
+      if(CH===2){buf.copyToChannel(f32.subarray(0,FRAMES),0);buf.copyToChannel(f32.subarray(FRAMES),1)}
+      else{buf.copyToChannel(f32.subarray(0,FRAMES),0);buf.copyToChannel(f32.subarray(0,FRAMES),1)}
+      const src=S.audioCtx.createBufferSource();src.buffer=buf;src.connect(S.agc);
+      const now=S.audioCtx.currentTime;
+      if(!S.audioPlaying||S.nextAt<now+0.02){S.nextAt=now+0.05;S.audioPlaying=true}
+      src.start(S.nextAt);S.nextAt+=FRAMES/RATE;
+    }
+  },0);
+}
+function setAudio(on){
+  S.audioOn=on;
+  $('btn-audio').classList.toggle('on',on);
+  if(on){ensureAudioGraph();if(S.audioCtx&&S.audioCtx.state==='suspended')S.audioCtx.resume();if(S.authed)send({t:'audio',on:true})}
+  else if(S.authed)send({t:'audio',on:false});
+  save('audio',on?1:0);
+}
+
+/* ================= dosya aktarımı ================= */
+function fmtSize(n){return n>1048576?(n/1048576).toFixed(1)+' MB':n>1024?(n/1024).toFixed(0)+' KB':n+' B'}
+function upStart(file){
+  if(!S.authed){toast('önce bağlan');return}
+  if(S.upBusy||S.upQ.some(x=>x.file===file)){return}
+  S.upQ.push({file});
+  pumpUpload();
+}
+async function pumpUpload(){
+  if(S.upBusy||!S.upQ.length||!S.authed)return;
+  S.upBusy=true;
+  const {file}=S.upQ[0];
+  const id='u'+(++S.upId);
+  S.upFile={id,name:file.name,size:file.size,got:0,file};S.upGot=0;
+  addUpRow(id,file.name,file.size);
+  const CH=96*1024;
+  const begin={t:'file-begin',id,name:file.name,size:file.size};
+  await send(begin);
+  let off=0;
+  while(off<file.size&&S.upFile&&S.upFile.id===id){
+    const slice=file.slice(off,off+CH);
+    const buf=new Uint8Array(await slice.arrayBuffer());
+    const env=new Uint8Array(1+buf.length);env[0]=0x0A;env.set(buf,1);
+    await send(null,env);
+    off+=CH;
+    await new Promise(r=>{const w=setInterval(()=>{if(!S.upFile||S.upFile.id!==id||S.upGot>=off){clearInterval(w);r()}},8)});
+  }
+}
+function addUpRow(id,name,size){
+  const d=document.createElement('div');d.className='row';d.id='up-'+id;
+  d.innerHTML=`<span style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">⬆ ${esc(name)}</span><span class="v" id="upv-${id}">0%</span>`;
+  $('up-list').prepend(d);
+}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function setUpPct(id,pct){const el=$('upv-'+id);if(el)el.textContent=pct}
+function sendShotRequest(){
+  if(!S.authed){toast('önce bağlan');return}
+  const id='s'+Date.now();
+  send({t:'shot',id});
+  toast('ekran görüntüsü alınıyor…');
+}
+function onShot(meta,jpeg){
+  if(!meta)return;
+  const blob=new Blob([jpeg],{type:'image/jpeg'});
+  const url=URL.createObjectURL(blob);
+  const name='ekran-'+new Date().toISOString().replace(/[:.]/g,'-')+'.jpg';
+  S.shots[meta.id]={blob,url,name};
+  const d=document.createElement('div');d.className='row shot-row';d.id='shot-'+meta.id;
+  d.innerHTML=`<span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📸 ${name.slice(0,20)}</span><span><button class="mini" id="sv-${meta.id}">KAYDET</button></span>`;
+  $('dl-list').prepend(d);
+  $('sv-'+meta.id).onclick=()=>{const a=document.createElement('a');a.href=S.shots[meta.id].url;a.download=name;a.click();vibrate(10)};
+  shotArchiveAdd(name,blob);
+  toast('ekran görüntüsü hazır ✓');vibrate(20);
+}
+
+/* ================= screenshot arşivi (IndexedDB) ================= */
+function idb(){
+  return new Promise((res,rej)=>{
+    if(S._idb)return res(S._idb);
+    const rq=indexedDB.open('panpi-shots',1);
+    rq.onupgradeneeded=()=>{rq.result.createObjectStore('shots',{keyPath:'name'})};
+    rq.onsuccess=()=>{S._idb=rq.result;res(S._idb)};
+    rq.onerror=()=>rej(rq.error);
+  });
+}
+async function shotArchiveAdd(name,blob){
+  try{
+    const db=await idb();
+    await new Promise((res,rej)=>{const tx=db.transaction('shots','readwrite');tx.objectStore('shots').put({name,blob,ts:Date.now()});tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});
+    // 50 kayıttan fazlasını sil (en eski)
+    const all=await new Promise((res)=>{const tx=db.transaction('shots','readonly');const rq=tx.objectStore('shots').getAll();rq.onsuccess=()=>res(rq.result||[])});
+    if(all.length>50){
+      all.sort((a,b)=>a.ts-b.ts);
+      for(const old of all.slice(0,all.length-50)){
+        await new Promise((res)=>{const tx=db.transaction('shots','readwrite');tx.objectStore('shots').delete(old.name);tx.oncomplete=res;tx.onerror=res});
+      }
+    }
+  }catch(_){/* arşiv kritik değil */}
+}
+async function shotArchiveList(){
+  try{
+    const db=await idb();
+    const all=await new Promise((res)=>{const tx=db.transaction('shots','readonly');const rq=tx.objectStore('shots').getAll();rq.onsuccess=()=>res(rq.result||[])});
+    return all.sort((a,b)=>b.ts-a.ts);
+  }catch(_){return []}
+}
+async function shotArchiveOpen(){
+  const items=await shotArchiveList();
+  const body=$('arch-body');body.innerHTML='';
+  if(!items.length){body.innerHTML='<div style="color:var(--dim);font-size:11px;padding:12px">arşiv boş — 📸 EKRAN AL ile görüntü al</div>'}
+  for(const it of items){
+    const url=URL.createObjectURL(it.blob);
+    const d=document.createElement('div');d.className='arch-item';
+    d.innerHTML=`<img src="${url}" alt=""><div class="arch-name">${esc(it.name)}</div><button class="mini">KAYDET</button>`;
+    d.querySelector('button').onclick=()=>{const a=document.createElement('a');a.href=url;a.download=it.name;a.click();vibrate(10)};
+    body.appendChild(d);
+  }
+  $('archive-modal').classList.add('open');
+}
+function onFileChunk(meta,chunk){
+  if(!meta)return;
+  const st=S.dlMap[meta.id];if(!st)return;
+  st.chunks.push(chunk);st.got+=chunk.length;
+  $('dlv-'+meta.id)&&($('dlv-'+meta.id).textContent=Math.round(100*st.got/st.size)+'%');
+  if(meta.last)finishDownload(meta.id);
+  else send({t:'file-next',id:meta.id});
+  S.dlBusy=false;pumpDownload();
+}
+function finishDownload(id){
+  const st=S.dlMap[id];if(!st)return;
+  const blob=new Blob(st.chunks);delete S.dlMap[id];
+  const url=URL.createObjectURL(blob);
+  const d=$('dl-'+id);if(d)d.querySelector('.v').textContent='✓';
+  const btn=$('sv-'+id);if(btn){btn.style.display='';btn.onclick=()=>{const a=document.createElement('a');a.href=url;a.download=st.name;a.click();vibrate(10)}};
+  toast(st.name+' hazır ✓');vibrate(20);
+}
+function reqFileList(){
+  if(!S.authed){toast('önce bağlan');return}
+  send({t:'file-list'});toast('liste alınıyor…');
+}
+function pumpDownload(){
+  if(S.dlBusy)return;
+  for(const id in S.dlMap){const st=S.dlMap[id];if(!st.started){st.started=true;S.dlBusy=true;send({t:'file-next',id});return}}
+}
+function onUploadDataAck(){
+  if(S.upFile)S.upGot+=96*1024;
+  if(S.upFile)setUpPct(S.upFile.id,Math.min(99,Math.round(100*S.upGot/Math.max(1,S.upFile.size))));
+}
+
+/* ================= mesajlar ================= */
+function handleMsg(m){
+  switch(m.t){
+    case 'ready':{
+      S.authed=true;S.pcName=m.device||'PC';S.rcTries=0;
+      $('pc-name').textContent=S.pcName;$('d-name').textContent=S.pcName;
+      showScreen('main');startPing();startStats();requestWake();send({t:'mix-master'});send({t:'mix-list'});send({t:'notify-history'});send({t:'powerinfo'});send({t:'audio-status'});send({t:'settings'});
+      // sürüm + MAC bilgisi (ajan /health'ten geliyor; WS'de yoksa health'e sar)
+      refreshPcInfo();
+      toast('bağlandı: '+S.pcName);vibrate(30);
+      if(load('audio',0))setAudio(true);
+      break;
+    }
+    case 'pong':S.latency=Math.round(performance.now()-S.pingStart);$('btn-lat').textContent=S.latency+'ms';$('d-lat').textContent=S.latency+'ms';break;
+    case 'err':toast(m.msg);break;
+    case 'file-ack':if(S.upFile)S.upGot=m.got||S.upGot;setUpPct(m.id,Math.min(99,Math.round(100*S.upGot/Math.max(1,S.upFile?S.upFile.size:1))));break;
+    case 'file-done':{
+      if(S.upFile&&S.upFile.id===m.id){setUpPct(m.id,'100 ✓');S.upQ.shift();S.upFile=null;S.upBusy=false;toast(m.name+' gönderildi ✓ ('+fmtSize(m.size)+' / '+m.ms+'ms)');vibrate(25);pumpUpload()}
+      else if(S.dlMap[m.id]){$('dlv-'+m.id)&&($('dlv-'+m.id).textContent='✓');delete S.dlMap[m.id]}
+      break;
+    }
+    case 'file-err':{
+      if(S.upFile){setUpPct(S.upFile.id,'✗');S.upQ.shift();S.upFile=null;S.upBusy=false;pumpUpload()}
+      if(S.dlMap[m.id]){const d=$('dl-'+m.id);if(d)d.querySelector('.v').textContent='✗ '+m.msg;delete S.dlMap[m.id];S.dlBusy=false;pumpDownload()}
+      toast('dosya hatası: '+m.msg);
+      break;
+    }
+    case 'file-aborted':toast('aktarım iptal');break;
+    case 'file-meta':{
+      S.dlMap[m.id]={name:m.name,size:m.size,got:0,chunks:[],started:false};
+      const d=document.createElement('div');d.className='row';d.id='dl-'+m.id;
+      d.innerHTML=`<span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">⬇ ${esc(m.name)}</span><span><span class="v" id="dlv-${m.id}">0%</span> <button class="mini" id="sv-${m.id}" style="display:none">KAYDET</button></span>`;
+      $('dl-list').prepend(d);
+      pumpDownload();
+      break;
+    }
+    case 'file-list':{
+      const el=$('file-list-body');if(!el)break;
+      el.innerHTML='';
+      if(!m.files.length){el.innerHTML='<div class="row"><span>PC\'de dosya yok</span><span class="v"></span></div>'}
+      for(const f of m.files){
+        const d=document.createElement('div');d.className='row';
+        d.innerHTML=`<span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(f.n)}">${esc(f.n)}</span><span><span class="v">${fmtSize(f.s)}</span> <button class="mini" data-fn="${esc(f.n)}" data-fs="${f.s}">AL</button></span>`;
+        el.appendChild(d);
+        d.querySelector('button').onclick=(ev)=>{
+          const fn=ev.target.dataset.fn,id='d'+Date.now()+Math.floor(Math.random()*999);
+          S.dlMap[id]={name:fn,size:+ev.target.dataset.fs,got:0,chunks:[],started:false};
+          const dd=document.createElement('div');dd.className='row';dd.id='dl-'+id;
+          dd.innerHTML=`<span style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">⬇ ${esc(fn)}</span><span><span class="v" id="dlv-${id}">0%</span></span>`;
+          $('dl-list').prepend(dd);
+          send({t:'file-get',n:fn,id});
+          $('file-list-modal').classList.remove('open');
+        };
+      }
+      break;
+    }
+    case 'audio':break; // ses verisi ham etiketli gelir
+    case 'clip':handleClip(m.s);break;
+    case 'mic-ack':S.micAck=true;flushMicQueue();break;
+    case 'mic-live':S.micLive=!!m.on;setMicBtn();toast(m.on?'PC hoparlörü CANLI 🔊':'canlı mic kapalı');break;
+    case 'power':toast('✓ '+({shutdown:'kapatma',restart:'yeniden başlatma',lock:'kilit',abort:'iptal'})[m.action]+' uygulanıyor');vibrate(20);break;
+    case 'mix-list':{
+      const box=$('mx-apps');
+      if(!m.ok){box.textContent='mikser: '+(m.err||'hata');break}
+      box.innerHTML='';
+      (m.list||[]).filter(a=>a.pid>0).slice(0,12).forEach(a=>{
+        const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;margin:3px 0';
+        const nm=document.createElement('span');nm.textContent=a.name.slice(0,12);nm.style.cssText='min-width:70px;color:var(--txt)';
+        const sl=document.createElement('input');sl.type='range';sl.min=0;sl.max=100;sl.value=a.vol;sl.style.flex='1';
+        sl.onchange=()=>send({t:'mix-set',pid:a.pid,vol:+sl.value});
+        const mu=document.createElement('button');mu.className='mini';mu.textContent=a.mute?'🔇':'🔈';
+        mu.onclick=()=>send({t:'mix-set',pid:a.pid,mute:a.mute?0:1});
+        row.appendChild(nm);row.appendChild(sl);row.appendChild(mu);box.appendChild(row);
+      });
+      if(!box.children.length)box.textContent='şu an ses çalan uygulama yok';
+      break;
+    }
+    case 'mix-master':{
+      if(m.ok){$('mx-master').textContent=m.vol+'%'+(m.mute?' 🔇':'');$('mx-master-slider').value=m.vol}
+      else toast('ana ses: '+(m.err||'hata'));
+      break;
+    }
+    case 'screen-off':{
+      if(m.cancelled)toast('zamanlayıcı iptal');
+      else if(m.after>0)toast('🌙 ekran '+m.after+' dk sonra kapanacak');
+      else toast('🌙 ekran kapatıldı');
+      vibrate(20);break;
+    }
+    case 'apps':{
+      S.apps=m.list||[];renderApps();break;
+    }
+    case 'app-open':toast(m.ok?'✓ açılıyor':'açılamadı',m.ok?0:1);if(m.ok)vibrate(15);break;
+    case 'app-kill':toast(m.ok?'✓ kapatıldı ('+m.name+')':'kapatılamadı: '+(m.err||'?'),m.ok?0:1);if(m.ok)vibrate(15);break;
+    case 'fs-roots':renderFsRoots(m);break;
+    case 'fs-list':renderFsList(m);break;
+    case 'fs-err':toast('gezgin: '+(m.msg||'hata'),1);break;
+    case 'fs-mkdir':if(m.ok){toast('✓ klasör oluştu');send({t:'fs-open',tag:S.fsCur})}break;
+    case 'fs-del':if(m.ok){toast('✓ silindi');send({t:'fs-open',tag:S.fsCur})}break;
+    case 'audio-playing':toast('🎵 PC\'de çalıyor: '+m.file,0);S.audioPlaying=true;mpUpdate(m.file,null);break;
+    case 'audio-done':toast('⏹ çalma bitti');S.audioPlaying=false;mpUpdate(null,null);break;
+    case 'audio-stopped':toast('⏹ durduruldu');S.audioPlaying=false;mpUpdate(null,null);break;
+    case 'audio-err':toast('ses: '+(m.msg||'hata'),1);break;
+    case 'audio-status':if(m.playing){S.audioPlaying=true;mpUpdate(m.file,null)}else mpUpdate(null,null);break;
+    case 'audio-pos':mpUpdate(m.file,{pos:m.pos||0,total:m.total||0,paused:m.paused});break;
+    case 'audio-state':if(m.paused!=null&&S.mpTimer){/* konum döngüsü halleder */}break;
+    case 'session-history':renderHistory(m.entries||[]);break;
+    case 'powerinfo':{
+      const b=m.battery,div=$('pw-battery');
+      if(b&&div){div.style.display='';$('pw-pct').textContent=b.pct+'%'+(b.charging?' ⚡ şarj oluyor':'')}
+      const pl=$('pw-plans');
+      if(pl){
+        pl.innerHTML='';
+        (m.plans||[]).forEach(p=>{
+          const r=document.createElement('div');r.className='row';r.style.cursor='pointer';
+          r.innerHTML='<span'+(p.active?' style="color:var(--acc)"':'')+'>'+(p.active?'✓ ':'')+esc(p.name)+'</span><span class="v" style="font-size:9px">'+(p.active?'aktif':'geç')+'</span>';
+          r.onclick=()=>{if(!p.active)send({t:'power-plan',guid:p.guid})};
+          pl.appendChild(r);
+        });
+      }
+      break;
+    }
+    case 'power-plan':if(m.ok){toast('✓ güç planı değişti');send({t:'powerinfo'})}break;
+    case 'notify':addNotify(m.icon,m.text);break;
+    case 'notify-history':{(m.list||[]).forEach(e=>addNotify(e.icon,e.text,true));break}
+    case 'game':setGameBadge(m.on,m.name);break;
+    case 'accel':{
+      S.accelOn=!!m.on;
+      const b=$('acc-badge');
+      if(b)b.style.display=S.accelOn?'':'none';
+      if(m.notify!==false)toast(S.accelOn?'🎯 hassas imleç: ivme kapalı':'fare ivmesi geri geldi');
+      break;
+    }
+    case 'settings':{
+      S.noAccel=!!m.noAccel;
+      if(m.accelOn!==undefined)S.accelOn=!!m.accelOn;
+      const t=$('acc-toggle');
+      if(t)t.textContent=S.noAccel?'✓ AÇIK':'KAPALI';
+      const b=$('acc-badge');
+      if(b)b.style.display=S.accelOn?'':'none';
+      break;
+    }
+    case 'battery-saver':setBatteryBadge(m.on,m.pct);break;
+    case 'audio-queue':if(m.ok)toast('📃 sıra: '+m.len+' dosya');break;
+    case 'audio-mode':if(m.shuffle!=null)S.mpShuffle=m.shuffle;if(m.repeat)S.mpRepeat=m.repeat;syncMpModeBtns();break;
+    case 'win-info':{
+      S.winPid=m.pid||0;
+      const w=$('win-title');
+      if(w)w.textContent=m.pid?((m.exe||'?').replace('.exe','')+' — '+(m.title||'').slice(0,24)):'pencere yok';
+      break;
+    }
+    case 'win-cmd':toast(m.ok?'✓ '+(m.action||''):'✗ '+(m.err||'başarısız'),m.ok?0:1);if(m.ok&&m.action==='close')$('btn-win-refresh').click();break;
+    case 'h264-status':{
+      const h=$('h264-state');
+      if(h){h.textContent=m.capable?'HAZIR ✓':'YOK (MFP gerekli)';h.style.color=m.capable?'var(--acc)':'var(--warn)';}
+      $('btn-h264-install').style.display=m.capable?'none':'';
+      break;
+    }
+    case 'h264-install':toast(m.msg||'kurulum başladı',0);break;
+    case 'proc-list':{
+      const box=$('proc-list');if(!box)break;
+      box.innerHTML=(m.list||[]).length?'':'<span style="color:var(--dim)">liste boş</span>';
+      (m.list||[]).forEach(p=>{
+        const r=document.createElement('div');r.className='row';r.style.cursor='pointer';
+        r.innerHTML='<span>'+esc(p.ProcessName||'?')+' <span style="color:var(--dim)">'+p.Id+'</span></span><span class="v" style="display:flex;gap:6px"><span>'+p.ram+'MB</span><span data-kill="1" style="color:var(--warn)">🛑</span></span>';
+        r.onclick=e=>{
+          if(!e.target.dataset.kill)return;
+          if(confirm((p.ProcessName||'?')+' sonlandırılsın mı?'))send({t:'proc-kill',pid:p.Id});
+        };
+        box.appendChild(r);
+      });
+      break;
+    }
+    case 'proc-kill':toast(m.ok?'🛑 '+(m.name||'')+' kapatıldı':'✗ '+(m.err||''),m.ok?0:1);if(m.ok)$('btn-proc').click();break;
+    case 'update-check':{
+      const u=$('upd-state');
+      if(u){
+        if(m.available){u.textContent='YENİ: v'+m.latest;u.style.color='var(--warn)';$('upd-notes').textContent=m.notes||'';$('btn-upd-apply').style.display=''}
+        else{u.textContent='güncel (v'+m.current+')';u.style.color='var(--acc)';$('upd-notes').textContent=m.err||'';$('btn-upd-apply').style.display='none'}
+      }
+      break;
+    }
+    case 'update-apply':{
+      const ua=$('upd-state');
+      if(!m.ok){if(ua){ua.textContent='✗ '+(m.msg||'hata');ua.style.color='var(--warn)'}toast('✗ '+(m.msg||'güncelleme başarısız'),1);break}
+      if(ua){ua.textContent=m.stage+'… (v'+(m.latest||'')+')';ua.style.color='var(--warn)'}
+      toast('⬆ '+(m.stage||'…')+' — PC birkaç sn içinde yeniden başlayacak');
+      break;
+    }
+    case 'relay-url':{
+      // tünel URL'i değişti — bağlantı adresini sessizce güncelle (koptuğunda yeni adrese bağlanır)
+      S.relayUrl=m.url||'';
+      if(m.url)toast('📡 mobil erişim hazır — ev dışından bağlanabilirsin');
+      break;
+    }
+    case 'stats':{
+      if(m.cpu!=null)$('st-cpu').textContent=m.cpu+'%';
+      if(m.cpuCores)$('st-cpu').textContent=m.cpu+'% ('+m.cpuCores+' çekirdek)';
+      if(m.memTotal)$('st-mem').textContent=m.memUsed+' / '+m.memTotal+' MB';
+      if(m.uptime!=null){const h=(m.uptime/3600)|0,mm=((m.uptime%3600)/60)|0;$('st-up').textContent=(h?h+' sa ':'')+mm+' dk'}
+      if(m.usage){
+        if(m.usage.sessionsTotal!=null)$('st-sess').textContent=m.usage.sessionsTotal;
+        if(m.usage.framesSent!=null)$('st-frames').textContent=m.usage.framesSent;
+        if(m.usage.bytesTx!=null){const b=m.usage.bytesTx;$('st-bytes').textContent=b>=1048576?(b/1048576).toFixed(1)+' MB':(b/1024).toFixed(0)+' KB'}
+      }
+      break;
+    }
+    case 'mic-done':toast('PC\'ye kaydedildi ('+fmtSize(m.size)+')');break;
+    case 'mic-aborted':S.micOn=false;S.micAck=false;setMicBtn();toast('mik hatası: '+(m.msg||'iptal'));break;
+    case 'mic-err':toast('mic: '+m.msg);break;
+  }
+}
+
+function handleFrame(plain){ // plain = jpeg
+  S.stats.frames++;S.stats.bytes+=plain.length;
+  const blob=new Blob([plain],{type:'image/jpeg'});
+  if(S.imgUrl)URL.revokeObjectURL(S.imgUrl);
+  S.imgUrl=URL.createObjectURL(blob);
+  const img=new Image();
+  img.onload=()=>{
+    const c=S.canvas;
+    if(c.width!==img.width||c.height!==img.height){c.width=img.width;c.height=img.height}
+    S.frameW=img.width;S.frameH=img.height;
+    S.ctx.save();
+    S.ctx.fillStyle='#000';S.ctx.fillRect(0,0,c.width,c.height);
+    if(S.zoom>1){
+      // merkezden yakınlaş: zoom 1..3 arası (dokunmatik pinch ile ayarlanır)
+      const zw=c.width/S.zoom,zh=c.height/S.zoom;
+      const zx=(c.width-zw)/2,zy=(c.height-zh)/2;
+      S.ctx.drawImage(img,zx,zy,zw,zh,0,0,c.width,c.height);
+    }else{
+      S.ctx.drawImage(img,0,0);
+    }
+    S.ctx.restore();
+    $('screen-off').style.display='none';
+    URL.revokeObjectURL(S.imgUrl);S.imgUrl=null;
+  };
+  img.src=S.imgUrl;
+  const now=Date.now();
+  if(S.stats.last&&now-S.stats.last>1000){
+    const kbps=Math.round(S.stats.bytes*8/1000/((now-S.stats.last)/1000));
+    $('d-kbps').textContent=kbps+' kbps';
+    S.stats.bytes=0;S.stats.last=now;
+  }else if(!S.stats.last){S.stats.last=now}
+}
+
+function startPing(){stopPing();S.pingT=setInterval(()=>{S.pingStart=performance.now();send({t:'ping',ts:1})},3000)}
+function stopPing(){clearInterval(S.pingT)}
+
+/* sistem istatistikleri (ping döngüsüne ekli) */
+function startStats(){stopStats();S.statsT=setInterval(()=>{if(!S.authed)return;send({t:'stats'})},4000)}
+function stopStats(){clearInterval(S.statsT)}
+
+/* ================= ekran akışı ================= */
+function setScreen(on){
+  S.screenOn=on;
+  $('btn-screen').classList.toggle('on',on);
+  $('btn-fps').style.display=on?'':'none';
+  $('btn-fps').textContent=S.fps+'fps';
+  $('screen-off').style.display=on?'none':'';
+  send({t:'stream',on,fps:S.fps,q:S.q});
+  if(!on&&S.canvas.width){S.ctx.fillStyle='#000';S.ctx.fillRect(0,0,S.canvas.width,S.canvas.height)}
+}
+
+/* ================= touchpad mouse ================= */
+/* --- EKRAN ÜSTÜ DOKUNMATİK FARE ---
+ * tap = sol tık · sürükle = imleç · uzun bas = sağ tık
+ * UZUN BAS + SÜRÜKLE = SOL TIK BASILI SÜRÜKLEME (drag & drop) — parmak kalkınca sol bırakılır
+ * zoom>1 iken: sürükleme artık imleci değil görüntüyü kaydırır (pan)
+ * iki parmak = scroll (zoom>1 iken pan zaten iki parmakta)
+ * koordinatlar JPEG kare boyutuna göre normalize edilir (object-fit:contain ile birebir)
+ */
+const sb=$('screenbar'),sbDot=document.createElement('div');
+sbDot.id='sb-dot';sb.appendChild(sbDot);
+let sbLast={x:0,y:0},sbTimer=0,sbHold=false,sbZoomPan=false,sbMulti=false,sbStart={x:0,y:0},sbLastTwoY=0,sbTwoY=0;
+let sbDrag=false; // sol tık basılı sürükleme (drag & drop) aktif
+
+/* görsel geri bildirim: dokunmatik halo + tık ripple'ı */
+const sbHalo=document.createElement('div');
+sbHalo.id='sb-halo';sb.appendChild(sbHalo);
+function sbHaloAt(clientX,clientY){
+  const r=sb.getBoundingClientRect();
+  sbHalo.style.left=(clientX-r.left)+'px';
+  sbHalo.style.top=(clientY-r.top)+'px';
+  sbHalo.classList.add('on');
+}
+function sbHaloHide(){sbHalo.classList.remove('on','hold')}
+function sbRipple(clientX,clientY,release){
+  const r=sb.getBoundingClientRect();
+  const el=document.createElement('div');
+  el.className='sb-ripple'+(release?' release':'');
+  el.style.left=(clientX-r.left)+'px';
+  el.style.top=(clientY-r.top)+'px';
+  sb.appendChild(el);
+  setTimeout(()=>{try{el.remove()}catch(_){}},500);
+}
+sbDot.addEventListener('transitionend',()=>{if(getComputedStyle(sbDot).opacity==='0')sbHaloHide()});
+
+/* kare içine düşen nokta: contain harf-box + zoom pan'ı hesaba katar */
+function sbPoint(clientX,clientY){
+  const r=sb.getBoundingClientRect();
+  const fw=S.frameW||1280,fh=S.frameH||Math.round(fw*9/16);
+  if(fw<2||fh<2){return null}
+  const sc=Math.min(r.width/fw,r.height/fh);           // contain ölçeği
+  const bw=fw*sc,bh=fh*sc;                             // görüntü kutusu (CSS px)
+  let x=(clientX-r.left-(r.width-bw)/2)/sc;            // kare pikseli
+  let y=(clientY-r.top-(r.height-bh)/2)/sc;
+  if(S.zoom>1){                                        // merkez-bazlı zoom pan'ı geri al
+    const zx=(fw-fw/S.zoom)/2,zy=(fh-fh/S.zoom)/2;
+    x=x/S.zoom+zx;y=y/S.zoom+zy;
+  }
+  x=Math.max(0,Math.min(1,x/fw));y=Math.max(0,Math.min(1,y/fh));
+  return {x,y};
+}
+function sbMoveDot(clientX,clientY){
+  const r=sb.getBoundingClientRect();
+  sbDot.style.left=(clientX-r.left)+'px';
+  sbDot.style.top=(clientY-r.top)+'px';
+  sbDot.style.opacity=1;
+}
+
+sb.addEventListener('touchstart',e=>{
+  if(e.touches.length>=2){ // ikinci parmak geldi: tık/uzunbas iptal, scroll modu
+    clearTimeout(sbTimer);sbTimer=0;sbMulti=true;sbTwoY=0;sbLastTwoY=0;
+    return;
+  }
+  e.preventDefault();
+  const t=e.touches[0];
+  sbLast={x:t.clientX,y:t.clientY};
+  sbStart={x:t.clientX,y:t.clientY};
+  sbMulti=false;sbZoomPan=false;
+  sbMoveDot(t.clientX,t.clientY);
+  sbHaloAt(t.clientX,t.clientY); // halo: parmağın altında yanar
+  vibrate(5);
+  clearTimeout(sbTimer);
+  sbTimer=setTimeout(()=>{ // uzun bas → drag başlıyor
+    sbTimer=0;
+    if(sbZoomPan||sbMulti)return; // artık pan/scroll modundaysa drag başlatma
+    sbHold=true;sbDrag=true;
+    // imleç zaten parmağın olduğu yerde; SOL TIK'ı BASILI TUT ve sürüklemeye başla
+    const p=sbPoint(t.clientX,t.clientY);
+    if(p)send({t:'mouse',x:p.x,y:p.y});
+    send({t:'mouse',btn:'left',down:true});
+    sbDot.classList.add('dragging');
+    sbHalo.classList.add('hold'); // halo kehribar rengine döner: basılı taşıma modu
+    vibrate(30);toast('✊ sürükle — bırak = bırak');
+  },550);
+},{passive:false});
+
+sb.addEventListener('touchmove',e=>{
+  if(e.touches.length>=2){
+    clearTimeout(sbTimer);sbTimer=0;
+    if(S.zoom>1)return; // pan: mevcut pinch/pan davranışı
+    // iki parmak dikey kaydırma = scroll tekerleği
+    const y=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    if(sbTwoY){
+      const d=Math.round((sbTwoY-y)/14);
+      if(d){send({t:'mouse',wheel:d})}
+    }
+    sbTwoY=y;
+    return;
+  }
+  e.preventDefault();
+  const t=e.touches[0];
+  const dx=t.clientX-sbLast.x,dy=t.clientY-sbLast.y;
+  // 3px'ten küçük titremeleri yok say (uzun bas bozulmasın)
+  if(!sbZoomPan&&!sbDrag&&Math.abs(t.clientX-sbStart.x)<3&&Math.abs(t.clientY-sbStart.y)<3)return;
+  if(!dx&&!dy&&!sbZoomPan)return;
+  sbLast={x:t.clientX,y:t.clientY};
+  clearTimeout(sbTimer);sbTimer=0;
+  if(S.zoom>1&&!sbDrag){sbZoomPan=true;return} // zoom'da sürükleme = görüntüyü kaydır (drag'de hariç)
+  sbMoveDot(t.clientX,t.clientY);
+  sbHaloAt(t.clientX,t.clientY); // halo parmağı takip eder
+  // imleci ekran koordinatına göre gönder (ekran üstü = absolute mod)
+  // drag modunda tuş basılı kalır — Windows'ta down+move = seçimi/taşımayı sürdürür
+  const p=sbPoint(t.clientX,t.clientY);
+  if(p)send({t:'mouse',x:p.x,y:p.y});
+},{passive:false});
+
+sb.addEventListener('touchend',e=>{
+  if(e.touches.length>0){sbTwoY=0;return}
+  clearTimeout(sbTimer);sbTimer=0;sbTwoY=0;
+  sbHaloHide(); // parmak kalktı → halo söner (tüm dallar)
+  if(sbHold){sbHold=false;sbMulti=false}
+  if(sbDrag){ // drag & drop bitti: sol tık'ı BIRAK
+    sbDrag=false;sbDot.classList.remove('dragging');sbDot.style.opacity=0;
+    sbRipple(e.changedTouches[0].clientX,e.changedTouches[0].clientY,true); // bırakma halkası
+    send({t:'mouse',btn:'left',down:false});
+    vibrate(10);toast('bırakıldı');
+    return;
+  }
+  if(sbMulti){sbMulti=false;sbZoomPan=false;return}
+  if(sbZoomPan){sbZoomPan=false;return}
+  // tap = sol tık (uzun basmadıysa, tek parmaksa)
+  const t=e.changedTouches[0];
+  const p=sbPoint(t.clientX,t.clientY);
+  sbDot.style.opacity=0;
+  sbRipple(t.clientX,t.clientY); // tık halkası
+  if(p){
+    send({t:'mouse',x:p.x,y:p.y});
+    send({t:'mouse',btn:'left',down:true});
+    setTimeout(()=>send({t:'mouse',btn:'left',down:false}),45);
+    vibrate(8);
+  }
+},{passive:false});
+sb.addEventListener('touchcancel',()=>{clearTimeout(sbTimer);sbTimer=0;sbHold=false;sbMulti=false;sbTwoY=0;
+  if(sbDrag){sbDrag=false;send({t:'mouse',btn:'left',down:false})} // asılı tuş kalmasın
+  sbDot.classList.remove('dragging');sbDot.style.opacity=0;sbHaloHide()},{passive:false});
+
+/* --- klasik dokunmatik yüzey (alt alan) --- */
+const tp=$('touchpad'),dot=$('cursor-dot');
+let tpActive=false,lastX=0,lastY=0,tapTimer=0,tapCount=0,twoFinger=false;
+let accumX=0,accumY=0,movePend=false;
+
+tp.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  if(e.touches.length===2){twoFinger=true;return}
+  const t=e.touches[0];lastX=t.clientX;lastY=t.clientY;tpActive=true;
+  dot.style.opacity=1;moveDot(t.clientX,t.clientY);
+  $('tp-hint').style.opacity=.25;
+},{passive:false});
+tp.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(twoFinger){return}
+  if(!tpActive)return;
+  const t=e.touches[0];
+  const dx=(t.clientX-lastX)*S.spd,dy=(t.clientY-lastY)*S.spd;
+  lastX=t.clientX;lastY=t.clientY;
+  accumX+=dx;accumY+=dy;
+  moveDot(t.clientX,t.clientY);
+  if(!movePend){movePend=true;requestAnimationFrame(flushMove)}
+},{passive:false});
+function flushMove(){
+  movePend=false;
+  if(Math.abs(accumX)<0.5&&Math.abs(accumY)<0.5)return;
+  send({t:'mouse',rx:accumX,ry:accumY});
+  accumX=0;accumY=0;
+}
+tp.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(e.touches.length===0){
+    if(twoFinger){twoFinger=false;return}
+    if(tpActive){
+      // tap = sol tık (hareket azsa)
+      tpActive=false;dot.style.opacity=0;$('tp-hint').style.opacity=1;
+      send({t:'mouse',btn:'left',down:true});
+      setTimeout(()=>send({t:'mouse',btn:'left',down:false}),40);
+      vibrate(8);
+    }
+  }
+},{passive:false});
+tp.addEventListener('touchcancel',()=>{tpActive=false;twoFinger=false;dot.style.opacity=0},{passive:false});
+function moveDot(x,y){dot.style.left=x+'px';dot.style.top=y+'px'}
+// iki parmak = sağ tık (standart jest: iki parmak aynı anda dokun ve kalk)
+let twoSeen=false,twoFingerMoved=0;
+tp.addEventListener('touchstart',e=>{
+  if(e.touches.length===2){twoSeen=true;twoFingerMoved=0}
+},{passive:false});
+tp.addEventListener('touchmove',e=>{if(e.touches.length===2)twoFingerMoved++},{passive:false});
+tp.addEventListener('touchend',e=>{
+  if(twoSeen&&e.touches.length===0&&twoFingerMoved<3){
+    twoSeen=false;
+    send({t:'mouse',btn:'right',down:true});
+    setTimeout(()=>send({t:'mouse',btn:'right',down:false}),40);
+    vibrate(15);
+  }
+  if(e.touches.length===0)twoSeen=false;
+},{passive:false});
+// scroll: iki parmak sürükleme; pinch: yakınlaştırma (ekran akışında)
+let lastTwoY=0;
+tp.addEventListener('touchmove',e=>{
+  if(e.touches.length===2){
+    // pinch-to-zoom
+    const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+    const d=Math.hypot(dx,dy);
+    if(S.pinchD>0){
+      const f=d/S.pinchD;
+      if(S.screenOn){
+        S.zoom=Math.max(1,Math.min(3,S.zoom*f));
+      }
+    }
+    S.pinchD=d;
+    if(S.screenOn){
+      const y=(e.touches[0].clientY+e.touches[1].clientY)/2;
+      lastTwoY=0; // pinch sırasında scroll kilit
+    }else{
+      const y=(e.touches[0].clientY+e.touches[1].clientY)/2;
+      if(lastTwoY){
+        const dy=lastTwoY-y;
+        const d=Math.round(dy/12);
+        if(d){send({t:'mouse',wheel:d});S.momV=S.momV*0.6+d;}
+      }
+      lastTwoY=y;
+    }
+  }else{
+    // iki parmak bitti → momentum (hız hâlâ varsa 800ms boyunca sönümlü sürdür)
+    if(lastTwoY&&S.momV&&Math.abs(S.momV)>=0.8&&!S.momT){
+      const v0=S.momV;
+      let v=v0;const t0=Date.now();
+      S.momT=setInterval(()=>{
+        const el=Date.now()-t0;
+        if(el>800||!S.authed){clearInterval(S.momT);S.momT=0;return}
+        const step=Math.round(v);
+        if(step)send({t:'mouse',wheel:step});
+        v*=0.86;
+      },40);
+    }
+    S.momV=0;lastTwoY=0;S.pinchD=0;
+  }
+},{passive:false});
+tp.addEventListener('touchend',e=>{if(e.touches.length<2)S.pinchD=0},{passive:false});
+// çift dokunma: zoom sıfırla (ekran akışı açıkken)
+let lastTapZoom=0;
+tp.addEventListener('touchstart',e=>{
+  if(S.screenOn&&e.touches.length===1){
+    const now=Date.now();
+    if(now-lastTapZoom<300){S.zoom=1;toast('zoom sıfırlandı');vibrate(10)}
+    lastTapZoom=now;
+  }
+},{passive:false});
+
+/* ================= retro mini klavye ================= */
+document.querySelectorAll('.key.mod').forEach(k=>{
+  k.addEventListener('click',()=>{
+    const m=k.dataset.mod;S.mods[m]=S.mods[m]?0:1;
+    k.classList.toggle('sticky',!!S.mods[m]);
+    updateModState();vibrate(8);
+  });
+});
+function activeMods(){return Object.keys(S.mods).filter(m=>S.mods[m])}
+function updateModState(){$('mod-state').textContent=activeMods().map(m=>m.toUpperCase()).join('+')}
+const MOD_VK={ctrl:17,alt:18,shift:16,win:91};
+document.querySelectorAll('#minikbd .key').forEach(k=>{
+  k.addEventListener('click',()=>{
+    const act=k.dataset.act,vk=k.dataset.vk?parseInt(k.dataset.vk):0,ext=k.dataset.ext==='1';
+    vibrate(6);
+    if(act==='space'){send({t:'key',vk:32,down:true});setTimeout(()=>send({t:'key',vk:32,down:false}),30);return}
+    if(act==='type'){openTypewriter();return}
+    if(act==='ctrlaltend'){sendCombo([17,18,35]);return}
+    if(act==='alttab'){sendCombo([18,9]);return}
+    if(act==='esc'){sendKey(27,ext);return}
+    if(act==='tab'){sendKey(9,ext);return}
+    if(act==='win'){sendKey(91,true,true);setTimeout(()=>sendKey(91,false,true),60);return}
+    if(act==='clip-get'){send({t:'clip-get'});return}
+    if(act==='clip-set'){
+      navigator.clipboard&&navigator.clipboard.readText?
+        navigator.clipboard.readText().then(tx=>{if(tx){send({t:'clip-set',s:tx});toast('PC panosuna yazıldı ('+tx.length+' kr)')}else toast('telefon panosu boş')}).catch(()=>toast('pano erişimi reddedildi',1)):
+        toast('tarayıcı panoyu desteklemiyor');
+      return;
+    }
+    if(act==='mic'){
+      if(!S.micOn){setMic(true);S.micLive=true;send({t:'mic-live',on:true})}
+      else if(!S.micLive){S.micLive=true;send({t:'mic-live',on:true})} // kayıt→canlı geçiş
+      else{S.micLive=false;send({t:'mic-live',on:false});setMic(true)} // canlı→sadece kayıt
+      setMicBtn();
+      return;
+    }
+    if(act==='mon'){cycleMonitor();return}
+    if(act==='kbd-layout')return; // onclick ile bağlandı (yukarıda)
+    if(act==='macro-edit')return; // onclick ile bağlandı
+    if(act==='cam'){setCam(!S.camOn);return}
+    if(vk){
+      const mods=activeMods();
+      mods.forEach(m=>send({t:'key',vk:MOD_VK[m],down:true,ext:m==='alt'||m==='ctrl'}));
+      sendKey(vk,ext);
+      setTimeout(()=>{mods.slice().reverse().forEach(m=>send({t:'key',vk:MOD_VK[m],down:false,ext:m==='alt'||m==='ctrl'}));mods.forEach(m=>{S.mods[m]=0;document.querySelector(`[data-mod=${m}]`)?.classList.remove('sticky')});updateModState()},40);
+    }
+  });
+});
+function sendKey(vk,down,ext){send({t:'key',vk,down,ext:!!ext})}
+
+/* ================= dosya gezgini v2 ================= */
+S.fsCur=null;S.fsPath='';
+function fmtSize(n){if(n>=1073741824)return (n/1073741824).toFixed(1)+' GB';if(n>=1048576)return (n/1048576).toFixed(1)+' MB';if(n>=1024)return (n/1024).toFixed(0)+' KB';return n+' B'}
+function renderFsRoots(m){
+  const box=$('fs-body');box.innerHTML='';
+  const mk=(label)=>{const h=document.createElement('div');h.style.cssText='font-weight:bold;color:var(--acc);margin:6px 0 2px';h.textContent=label;box.appendChild(h)};
+  const item=(o,isDir)=>{
+    const d=document.createElement('div');d.className='row';d.style.cursor='pointer';
+    d.innerHTML='<span>'+esc(o.name)+'</span><span class="v">'+(isDir?'📂':'')+'</span>';
+    d.onclick=()=>{S.fsCur=o.tag;send({t:'fs-open',tag:o.tag})};
+    box.appendChild(d);
+  };
+  mk('HIZLI');m.quick.forEach(q=>item(q,true));
+  mk('SÜRÜCÜLER');m.drives.forEach(d=>item(d,true));
+}
+function renderFsList(m){
+  S.fsCur=m.upTag||S.fsCur;
+  const box=$('fs-body');box.innerHTML='';
+  const head=document.createElement('div');head.style.cssText='font-weight:bold;color:var(--acc);margin-bottom:4px';
+  head.textContent='📁 '+m.path;
+  box.appendChild(head);
+  const up=document.createElement('div');up.className='row';up.style.cursor='pointer';up.innerHTML='<span>⬆ üst klasör</span>';
+  up.onclick=()=>{if(m.up){S.fsCur=m.up;send({t:'fs-open',tag:m.up})}else send({t:'fs-roots'})};
+  box.appendChild(up);
+  m.dirs.forEach(d=>{
+    const r=document.createElement('div');r.className='row';r.style.cursor='pointer';
+    r.innerHTML='<span>📂 '+esc(d.name)+'</span><span class="v" data-del="1" style="color:var(--warn);padding:0 6px">✕</span>';
+    r.onclick=e=>{if(e.target.dataset.del){if(confirm('klasör silinsin mi: '+d.name+'?'))send({t:'fs-del',tag:d.tag});return}S.fsCur=d.tag;send({t:'fs-open',tag:d.tag})};
+    box.appendChild(r);
+  });
+  m.files.forEach(f=>{
+    const r=document.createElement('div');r.className='row';r.style.cursor='pointer';
+    const isAudio=/\.(mp3|wav|m4a|wma|flac|ogg|aac)$/i.test(f.name);
+    const inQ=S.mpQueueTags.has(f.tag);
+    const acts='<span class="v" style="display:flex;gap:6px"><span>'+fmtSize(f.size)+'</span>'
+      +(isAudio?'<span data-play="1" style="color:var(--acc)">▶</span><span data-qadd="1" style="color:'+(inQ?'var(--warn)':'var(--dim)')+'">'+(inQ?'−':'+')+'</span>':'')
+      +'<span data-del="1" style="color:var(--warn)">✕</span><span data-get="1" style="color:var(--acc)">⬇</span></span>';
+    r.innerHTML='<span>'+esc(f.name)+(inQ?' <span style="color:var(--acc)">📃</span>':'')+'</span>'+acts;
+    r.onclick=e=>{
+      if(e.target.dataset.play){
+        // sıra seçiliyse beraber gönder, değilse tek çal
+        const q=Array.from(S.mpQueueTags);
+        S.mpQueueTags.delete(f.tag);
+        send({t:'audio-play',id:'mp'+Date.now(),tag:f.tag,vol:600,queue:q});
+        toast(q.length?'🎵 çalıyor + '+q.length+' sıra':'🎵 PC\'de çalıyor…');
+        S.mpQueueTags.clear();
+        send({t:'fs-open',tag:S.fsCur});
+        return;
+      }
+      if(e.target.dataset.qadd){
+        if(S.mpQueueTags.has(f.tag))S.mpQueueTags.delete(f.tag);else S.mpQueueTags.add(f.tag);
+        send({t:'fs-open',tag:S.fsCur});
+        return;
+      }
+      if(e.target.dataset.del){if(confirm('silinsin mi: '+f.name+'?'))send({t:'fs-del',tag:f.tag});return}
+      if(e.target.dataset.get){const id='g'+Date.now();send({t:'fs-get',id,tag:f.tag});toast('indiriliyor…');return}
+    };
+    box.appendChild(r);
+  });
+  if(!m.dirs.length&&!m.files.length)box.insertAdjacentHTML('beforeend','<div style="color:var(--dim)">boş klasör</div>');
+}
+$('btn-fs-open').onclick=()=>{$('fs-modal').classList.add('open');S.fsCur=null;send({t:'fs-roots'})};
+$('btn-fs-close').onclick=()=>$('fs-modal').classList.remove('open');
+$('btn-fs-new').onclick=()=>{const n=prompt('yeni klasör adı:');if(n&&S.fsCur)send({t:'fs-mkdir',tag:S.fsCur,name:n})};
+
+/* ================= bildirim merkezi (PC → telefon) ================= */
+S.notifs=[];
+function addNotify(icon,text,silent){
+  const n={icon,text,ts:Date.now()};
+  S.notifs.unshift(n);if(S.notifs.length>20)S.notifs.pop();
+  const badge=$('notif-badge');if(badge){badge.style.display='';badge.textContent=S.notifs.length}
+  if(!silent){toast(icon+' '+text);vibrate(30)}
+  renderNotifs();
+}
+function renderNotifs(){
+  const box=$('notif-list');if(!box)return;
+  box.innerHTML='';
+  S.notifs.forEach(n=>{
+    const d=document.createElement('div');d.className='row';
+    const tm=new Date(n.ts).toTimeString().slice(0,5);
+    d.innerHTML='<span>'+esc(n.icon+' '+n.text)+'</span><span class="v">'+tm+'</span>';
+    box.appendChild(d);
+  });
+  if(!S.notifs.length)box.innerHTML='<span style="color:var(--dim)">henüz bildirim yok</span>';
+}
+$('btn-notif').onclick=()=>{renderNotifs();$('notif-modal').classList.add('open');$('notif-badge').style.display='none'};
+$('btn-notif-close').onclick=()=>$('notif-modal').classList.remove('open');
+function renderHistory(entries){
+  const box=$('hist-list');if(!box)return;
+  box.innerHTML='';
+  // günlük grafik: son 7 günün oturum sayıları
+  const days={};
+  entries.forEach(e=>{
+    const k=new Date(e.ts).toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit'});
+    days[k]=(days[k]||0)+1;
+  });
+  const ks=Object.keys(days).slice(-7);
+  if(ks.length>1){
+    const max=Math.max(...ks.map(k=>days[k]));
+    const chart=document.createElement('div');
+    chart.style.cssText='display:flex;align-items:flex-end;gap:4px;height:56px;padding:6px 4px;border-bottom:1px solid var(--line);margin-bottom:6px';
+    ks.forEach(k=>{
+      const h=Math.max(4,Math.round(days[k]/max*44));
+      const col=document.createElement('div');
+      col.style.cssText='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%';
+      col.innerHTML='<span style="font-size:8px;color:var(--acc)">'+days[k]+'</span><div style="width:70%;height:'+h+'px;background:var(--acc);opacity:.7;border-radius:2px 2px 0 0"></div><span style="font-size:7px;color:var(--dim)">'+k+'</span>';
+      chart.appendChild(col);
+    });
+    box.appendChild(chart);
+  }
+  if(!entries.length){box.innerHTML='<span style="color:var(--dim)">henüz kayıt yok</span>';return}
+  entries.slice().reverse().forEach(e=>{
+    const d=document.createElement('div');d.className='row';
+    const dt=new Date(e.ts);
+    d.innerHTML='<span>'+esc(e.name)+' <span style="color:var(--dim)">'+esc(e.ip||'')+'</span></span><span class="v">'+dt.toLocaleDateString('tr-TR')+' '+dt.toTimeString().slice(0,5)+'</span>';
+    box.appendChild(d);
+  });
+}
+$('btn-hist-close').onclick=()=>$('hist-modal').classList.remove('open');
+$('btn-hist').onclick=()=>{send({t:'session-history'});$('hist-modal').classList.add('open')};
+
+/* hassas imleç ayarı: PC'ye kaydet + durum rozetini senkronla */
+S.noAccel=false;S.accelOn=false;
+$('acc-toggle').onclick=()=>{
+  S.noAccel=!S.noAccel;
+  const t=$('acc-toggle');if(t)t.textContent=S.noAccel?'✓ AÇIK':'KAPALI';
+  send({t:'settings',noAccel:S.noAccel});
+  vibrate(12);toast(S.noAccel?'🎯 hassas imleç açık — ivme otomatik kapanacak':'hassas imleç kapalı — ivme normale döner');
+};
+
+/* ================= PC ses çalar v2 + kısayollar ================= */
+S.mpTimer=0;
+S.mpQueueTags=new Set(); // sıraya eklenecek dosya etiketleri
+function setBatteryBadge(on,pct){
+  const b=$('game-badge');if(!b)return;
+  if(on){
+    b.style.display='';
+    b.innerHTML='<h4 style="color:var(--warn)">🔋 PİL TASARRUFU (%'+(pct||'?')+')</h4><div style="font-size:9px;color:var(--dim)">Akış + ses otomatik kapatıldı. Şarj olunca normale döner.</div>';
+    toast('🔋 pil tasarrufu açıldı');vibrate(60);
+  } else {
+    b.style.display='none';
+    toast('🔋 tasarruf modu kapandı');
+  }
+}
+function mpUpdate(file,pos){
+  const now=$('mp-now');if(!now)return;
+  if(file===null&&!pos){if(!S.mpTimer)return;} // pozisyon güncellemesi boşsa dokunma
+  if(file)now.textContent='🎵 '+file;
+  else if(pos===null){now.textContent='çalan yok — gezginden ▶ ile başlat';return}
+  const pe=$('mp-pos');
+  if(pe&&pos){
+    const fmt=ms=>{const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')};
+    pe.textContent=fmt(pos.pos)+' / '+fmt(pos.total||0)+(pos.paused?' (⏸)':'');
+  }
+}
+function mpStartPoll(){
+  if(S.mpTimer)clearInterval(S.mpTimer);
+  S.mpTimer=setInterval(()=>{if(S.authed&&S.audioPlaying)send({t:'audio-pos'})},2000);
+}
+mpStartPoll();
+$('btn-mp-pause').onclick=()=>send({t:'audio-pause'});
+$('btn-mp-resume').onclick=()=>send({t:'audio-resume'});
+$('btn-mp-stop').onclick=()=>send({t:'audio-stop'});
+S.mpShuffle=false;S.mpRepeat='off';
+$('btn-mp-shuffle').onclick=()=>{S.mpShuffle=!S.mpShuffle;$('btn-mp-shuffle').textContent='🔀 KARIŞTIR: '+(S.mpShuffle?'AÇIK':'KAPALI');send({t:'audio-mode',shuffle:S.mpShuffle?1:0})};
+$('btn-mp-repeat').onclick=()=>{S.mpRepeat=S.mpRepeat==='off'?'all':(S.mpRepeat==='all'?'one':'off');$('btn-mp-repeat').textContent='🔁 TEKRAR: '+S.mpRepeat.toUpperCase();send({t:'audio-mode',repeat:S.mpRepeat})};
+function syncMpModeBtns(){
+  const s=$('btn-mp-shuffle'),r=$('btn-mp-repeat');
+  if(s)s.textContent='🔀 KARIŞTIR: '+(S.mpShuffle?'AÇIK':'KAPALI');
+  if(r)r.textContent='🔁 TEKRAR: '+(S.mpRepeat||'off').toUpperCase();
+}
+/* pencere yönetimi + h264 */
+S.winPid=0;
+$('btn-win-refresh').onclick=()=>send({t:'win-info'});
+$('btn-win-min').onclick=()=>{if(S.winPid)send({t:'win-cmd',action:'minimize',pid:S.winPid})};
+$('btn-win-max').onclick=()=>{if(S.winPid)send({t:'win-cmd',action:'maximize',pid:S.winPid})};
+$('btn-win-close').onclick=()=>{if(S.winPid&&confirm('pencere kapatılsın mı?'))send({t:'win-cmd',action:'close',pid:S.winPid})};
+$('btn-h264-install').onclick=()=>{if(confirm('PC\'de UAC penceresi açılacak — onaylıyor musunuz?'))send({t:'h264-install'})};
+send({t:'h264-status'});
+$('btn-proc').onclick=()=>{send({t:'proc-list'});toast('süreçler alınıyor…')} ;
+$('btn-upd-check').onclick=()=>{$('upd-state').textContent='kontrol…';send({t:'update-check'})};
+$('btn-upd-apply').onclick=()=>{if(S.upBusy)return;S.upBusy=true;$('upd-state').textContent='başlatılıyor…';send({t:'update-apply'});setTimeout(()=>S.upBusy=false,15000)};
+/* ================= dokunmatik scroll çubuğu (ekran akışının sağ kenarı) ================= */
+(function initScrollbar(){
+  const bar=$('scrollbar'),thumb=$('scrollbar-thumb');
+  if(!bar||!thumb)return;
+  let active=false,startY=0,startH=0,lastWheel=0,lastWheelSent=0;
+  function wheel(notches){
+    if(!S.screenOn)return;
+    const now=Date.now();
+    if(now-lastWheel<30)return;
+    lastWheel=now;
+    send({t:'mouse',wheel:notches});
+  }
+  bar.addEventListener('touchstart',e=>{
+    e.preventDefault();e.stopPropagation();
+    active=true;startY=e.touches[0].clientY;
+    const rect=thumb.getBoundingClientRect();
+    startH=parseFloat(getComputedStyle(thumb).marginTop)||0;
+  },{passive:false});
+  bar.addEventListener('touchmove',e=>{
+    if(!active)return;
+    e.preventDefault();e.stopPropagation();
+    const y=e.touches[0].clientY;
+    const dy=y-startY;
+    const barH=bar.clientHeight-40;
+    const newTop=Math.max(0,Math.min(barH,startH+dy));
+    thumb.style.marginTop=newTop+'px';
+    // kaydırma yönü ve miktarı: 6px = 1 çentik
+    if(dy>lastWheelSent+6){wheel(-2);lastWheelSent=dy;}
+    else if(dy<lastWheelSent-6){wheel(2);lastWheelSent=dy;}
+  },{passive:false});
+  bar.addEventListener('touchend',e=>{active=false;},{passive:false});
+})();
+
+function sendCombo(names){
+  // vk tablosu: ajanın mevcut combo komutu vk dizisi bekliyor
+  const vkMap={LWIN:0x5B,RWIN:0x5C,LCTRL:0xA2,RCTRL:0xA3,LSHIFT:0xA0,RSHIFT:0xA1,LALT:0xA4,RALT:0xA5,
+    TAB:0x09,RETURN:0x0D,ENTER:0x0D,ESC:0x1B,SPACE:0x20,BACKSPACE:0x08,DEL:0x2E,DELETE:0x2E,
+    INS:0x2D,INSERT:0x2D,HOME:0x24,END:0x23,PGUP:0x21,PGDN:0x22,PRINTSCREEN:0x2C,
+    LEFT:0x25,RIGHT:0x27,UP:0x26,DOWN:0x28,
+    VOLPLUS:0xAF,VOLMINUS:0xAE,MUTE:0xAD,PLAYPAUSE:0xB3,STOP:0xB2,NEXT:0xB0,PREV:0xB1};
+  for(let i=1;i<=12;i++)vkMap['F'+i]=0x6F+i;
+  const vks=names.split(',').map(s=>s.trim().toUpperCase()).map(n=>vkMap[n]!==undefined?vkMap[n]:((n.length===1&&n.charCodeAt(0)>=65&&n.charCodeAt(0)<=90)||((n.length===1)&&n.charCodeAt(0)>=48&&n.charCodeAt(0)<=57))?n.charCodeAt(0):0).filter(v=>v>0);
+  if(vks.length)send({t:'combo',vks});
+}
+document.querySelectorAll('[data-combo]').forEach(b=>{
+  b.onclick=()=>{sendCombo(b.dataset.combo);vibrate(12)};
+});
+function setGameBadge(on,name){
+  const b=$('game-badge');if(!b)return;
+  b.style.display=on?'':'none';
+  if(on)b.textContent='🎮 '+(name||'OYUN MODU');
+  toast(on?'🎮 oyun modu açıldı'+(name?' ('+name+')':''):'oyun modu kapandı');
+}
+
+/* ================= telefon kamerası → PC ================= */
+S.camOn=false;S.camStream=null;S.camT=0;
+function setCamBtn(){const b=$('btn-cam');if(!b)return;b.classList.toggle('on',S.camOn);b.textContent=S.camOn?'📷●':'📷'}
+async function setCam(on){
+  if(on===S.camOn)return;
+  if(on){
+    try{
+      S.camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},audio:false});
+      const v=document.createElement('video');v.srcObject=S.camStream;v.muted=true;v.playsInline=true;await v.play();
+      S.camVideo=v;S.camCvs=document.createElement('canvas');S.camCvs.width=640;S.camCvs.height=480;
+      S.camCtx=S.camCvs.getContext('2d');
+      send({t:'cam',on:true});S.camOn=true;setCamBtn();
+      toast('📷 kamera PC\'ye akıyor — PC\'de /cam sayfasını aç');
+      S.camT=setInterval(camFrame,150);
+    }catch(e){toast('kamera açılamadı: '+e.name,1)}
+  }else{
+    clearInterval(S.camT);S.camT=0;S.camOn=false;
+    send({t:'cam',on:false});
+    if(S.camStream){S.camStream.getTracks().forEach(t=>t.stop());S.camStream=null}
+    S.camVideo=null;S.camCtx=null;
+    setCamBtn();toast('kamera kapandı');
+  }
+}
+async function camFrame(){
+  if(!S.camOn||!S.camCtx||!S.authed)return;
+  try{
+    S.camCtx.drawImage(S.camVideo,0,0,640,480);
+    const blob=await new Promise(r=>S.camCvs.toBlob(r,'image/jpeg',0.6));
+    if(!blob)return;
+    const buf=new Uint8Array(await blob.arrayBuffer());
+    const env=new Uint8Array(1+buf.length);env[0]=0x0C;env.set(buf,1);
+    send(null,env);
+  }catch(_){}
+}
+function sendCombo(vks){vks.forEach(v=>send({t:'key',vk:v,down:true,ext:v!==9&&v!==35}));setTimeout(()=>vks.slice().reverse().forEach(v=>send({t:'key',vk:v,down:false,ext:v!==9&&v!==35})),50)}
+
+/* pano + monitör */
+S.mon=load('mon',-1);
+function cycleMonitor(){
+  S.mon=S.mon>=2?-1:S.mon+1; // -1=tümü, 0,1,2 = tek monitör (bilinen üst sınır)
+  save('mon',S.mon);
+  send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon});
+  toast(S.mon<0?'ekran: TÜMÜ':'ekran: monitor '+(S.mon+1));vibrate(12);
+}
+/* monitör şeridi: her ekranın tek seferlik küçük görüntüsü, dokununca geç */
+let monStripBusy=false;
+function refreshMonStrip(){
+  if(monStripBusy||!S.authed)return;
+  monStripBusy=true;
+  const box=$('mon-strip');box.innerHTML='';
+  const targets=[-1,0,1,2]; // tümü + ilk 3 monitör
+  let done=0;
+  targets.forEach(mon=>{
+    const id='ms'+mon+'-'+Date.now();
+    const cell=document.createElement('div');cell.className='mon-cell';
+    cell.innerHTML='<div class="ph">…</div><span>'+(mon<0?'TÜMÜ':'M'+(mon+1))+'</span>';
+    cell.onclick=()=>{S.mon=mon;save('mon',S.mon);send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon});toast(mon<0?'ekran: TÜMÜ':'ekran: '+(mon===0?'1.':mon===1?'2.':'3.')+' monitör');vibrate(12)};
+    box.appendChild(cell);
+    // tek seferlik küçük shot: ajan mon parametresiyle capture başlatır/bitirir
+    const t0=Date.now();
+    const req={t:'shot',id,mon,wantSmall:true};
+    send(req);
+    const wait=setInterval(()=>{
+      const s=S.shots[id];
+      if(s){clearInterval(wait);const img=new Image();img.onload=()=>{cell.querySelector('.ph').replaceWith(img)};img.src=s.url;}
+      else if(Date.now()-t0>9000){clearInterval(wait);cell.querySelector('.ph').textContent='—';}
+    },300);
+  });
+  setTimeout(()=>monStripBusy=false,10000);
+}
+$('btn-mon-strip').onclick=()=>{$('mon-strip').classList.toggle('open');if($('mon-strip').classList.contains('open'))refreshMonStrip()};
+function handleClip(s){
+  if(!s){toast('PC panosu boş');return}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(s).then(()=>toast('PC panosu telefona alındı ('+s.length+' kr)')).catch(()=>showClipFallback(s));
+  }else showClipFallback(s);
+}
+function showClipFallback(s){
+  const inp=document.createElement('textarea');inp.value=s;
+  inp.style.cssText='position:fixed;top:0;left:0;width:100%;height:30%;opacity:.95;z-index:999';
+  document.body.appendChild(inp);inp.select();
+  try{document.execCommand('copy');toast('PC panosu alındı ('+s.length+' kr)')}catch(_){toast('kopyalanamadı',1)}
+  setTimeout(()=>inp.remove(),2500);
+}
+
+/* yazı modu: native klavye kullan */
+function openTypewriter(){
+  const inp=document.createElement('input');
+  inp.style.cssText='position:absolute;top:-100px;left:0;opacity:0';
+  document.body.appendChild(inp);
+  inp.focus();
+  toast('yaz… klavye açılacak');
+  inp.addEventListener('input',()=>{
+    const v=inp.value;inp.value='';
+    if(v)send({t:'text',s:v});
+  });
+  inp.addEventListener('blur',()=>setTimeout(()=>inp.remove(),300));
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();inp.value='';send({t:'key',vk:13,down:true,ext:1});setTimeout(()=>send({t:'key',vk:13,down:false,ext:1}),30)}
+    if(e.key==='Backspace'){e.preventDefault();send({t:'key',vk:8,down:true});setTimeout(()=>send({t:'key',vk:8,down:false}),30)}
+  });
+}
+
+/* ================= PC bilgisi + WOL ================= */
+async function refreshPcInfo(){
+  // sürüm satırı
+  const verEl=$('d-ver');
+  try{
+    const base=(location.protocol==='https:'||tlsForced())?'https://':'http://';
+    const addr=addrOf();
+    const r=await fetch(base+addr+'/health',{cache:'no-store'});
+    const j=await r.json();
+    if(verEl)verEl.textContent=j.version?('v'+j.version):'—';
+    if(j.macs&&j.macs.length){
+      S.pcMacs=j.macs;
+      const saved=load('wolMac','');
+      $('d-mac').textContent=saved||(j.macs[0].toUpperCase());
+    }
+    // güncelleme var mı?
+    try{
+      const vj=await (await fetch('https://minikluffy.github.io/panpikontrol-site/version.json',{cache:'no-store'})).json();
+      if(vj.version&&j.version&&vj.version!==j.version){
+        if(verEl){verEl.textContent='v'+j.version+' → v'+vj.version+' var!';verEl.style.color='var(--warn)'}
+      }
+    }catch(_){}
+  }catch(_){if(verEl)verEl.textContent='—'}
+}
+$('btn-wol').onclick=async()=>{
+  vibrate(15);
+  // APK'da native köprü dene (ekran kapalıyken de çalışır), sonra HTTPS yolu
+  const nativeMac=load('wolMac','');
+  if(window.PanpiAndroid&&window.PanpiAndroid.wol&&nativeMac){window.PanpiAndroid.wol(nativeMac)}
+  try{
+    const base=(location.protocol==='https:'||tlsForced())?'https://':'http://';
+    const token=tokenOf();
+    const mac=load('wolMac','')||(S.pcMacs&&S.pcMacs[0])||'';
+    const r=await fetch(base+addrOf()+'/wol',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({mac})});
+    const j=await r.json();
+    if(r.ok&&j.ok){toast('⚡ sihirli paket gönderildi ('+j.sent+' MAC)')}
+    else toast('WOL başarısız: '+(j.error||r.status),1);
+  }catch(e){toast('WOL hatası: '+e.message,1)}
+};
+$('btn-wol-save').onclick=async()=>{
+  vibrate(10);
+  const macs=S.pcMacs||[];
+  if(!macs.length){toast('önce PC\'ye bağlan (MAC listesi için)',1);return}
+  if(macs.length===1){save('wolMac',macs[0]);$('d-mac').textContent=macs[0].toUpperCase();toast('MAC kaydedildi ✓');return}
+  // birden çok: ilk olmayanı kaydet (ethernet genelde ilk)
+  const pick=prompt('MAC seç:\n'+macs.map((m,i)=>(i+1)+': '+m.toUpperCase()).join('\n')+'\nNumara yaz:');
+  const i=parseInt(pick,10)-1;
+  if(i>=0&&i<macs.length){save('wolMac',macs[i]);$('d-mac').textContent=macs[i].toUpperCase();toast('MAC kaydedildi ✓')}
+};
+
+/* ================= güç komutları ================= */
+function sendPower(action){
+  if(action==='shutdown'&&!confirm('PC KAPATILACAK. Emin misin?'))return;
+  if(action==='restart'&&!confirm('PC yeniden başlatılacak. Emin misin?'))return;
+  vibrate(20);
+  send({t:'power',action,confirm:'EVET'});
+}
+$('btn-pw-lock').onclick=()=>sendPower('lock');
+$('btn-pw-restart').onclick=()=>sendPower('restart');
+$('btn-pw-off').onclick=()=>sendPower('shutdown');
+
+/* ================= ses mikseri + ekran ================= */
+let mxT=0;
+$('mx-master-slider').oninput=e=>{const v=+e.target.value;$('mx-master').textContent=v+'%';clearTimeout(mxT);mxT=setTimeout(()=>send({t:'mix-master',vol:v}),250)};
+$('btn-mx-master-mute').onclick=()=>send({t:'mix-master',mute:1});
+$('btn-mx-refresh').onclick=()=>send({t:'mix-list'});
+$('btn-scr-off').onclick=()=>send({t:'screen-off',after:0});
+document.querySelectorAll('[data-scr]').forEach(b=>b.onclick=()=>send({t:'screen-off',after:+b.dataset.scr}));
+$('btn-scr-cancel').onclick=()=>send({t:'screen-off',cancel:1});
+
+/* ================= uygulamalar ================= */
+S.apps=[];
+function renderApps(){
+  const q=($('app-search').value||'').toLowerCase();
+  const box=$('app-list');box.innerHTML='';
+  S.apps.filter(a=>!q||a.name.toLowerCase().includes(q)).slice(0,40).forEach(a=>{
+    const row=document.createElement('div');row.style.cssText='display:flex;align-items:center;gap:6px;margin:3px 0';
+    const nm=document.createElement('span');nm.textContent=a.name;nm.style.cssText='flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)';
+    const op=document.createElement('button');op.className='mini';op.textContent='▶';op.title='aç';
+    op.onclick=()=>send({t:'app-open',path:a.path});
+    const ex=document.createElement('button');ex.className='mini';ex.textContent='✕';ex.title='kapat (exe adı)';ex.style.color='var(--warn)';
+    ex.onclick=()=>{const exe=prompt('kapatılacak process adı (örn: chrome):');if(exe)send({t:'app-kill',name:exe})};
+    row.appendChild(nm);row.appendChild(op);row.appendChild(ex);box.appendChild(row);
+  });
+  if(!box.children.length)box.innerHTML='<span style="color:var(--dim)">'+(S.apps.length?'eşleşme yok':'liste için LİSTELE')+'</span>';
+}
+$('btn-apps').onclick=()=>{send({t:'apps'});toast('liste alınıyor…')};
+$('app-search').oninput=renderApps;
+
+/* ================= klavye düzeni (TR/EN) + makrolar ================= */
+S.layout=load('kbdLayout','TR');
+const TR2EN={';':'\'','ı':'i'}; // TR'de ; tuşu EN'de ' — ama VK'ler fiziksel, sadece etiket değişir
+function applyLayout(){
+  $('kbd-layout').textContent=S.layout;
+  const row2=document.querySelectorAll('#minikbd .krow')[1];
+  if(S.layout==='TR'){row2.children[0].textContent='ö';row2.children[1].textContent='ç';row2.children[2].textContent='ş';row2.children[3].textContent="'"}
+  else{row2.children[0].textContent='[';row2.children[1].textContent=']';row2.children[2].textContent=';';row2.children[3].textContent="'"}
+}
+S.macroPages=load('macroPages',null)||{page:0,pages:[[],[],[]]}; // 3 sayfa × 4 makro
+if(!Array.isArray(S.macroPages.pages)||S.macroPages.pages.length!==3)S.macroPages={page:0,pages:[[],[],[]]};
+function saveMacroPages(){save('macroPages',S.macroPages)}
+function editMacros(){
+  const cur=S.macroPages.pages[S.macroPages.page];
+  const s=prompt('Sayfa '+(S.macroPages.page+1)+' makroları (her satır: etiket = metin):',cur.map(m=>m.label+' = '+m.text).join('\n'));
+  if(s==null)return;
+  S.macroPages.pages[S.macroPages.page]=s.split('\n').map(l=>{const i=l.indexOf('=');return i>0?{label:l.slice(0,i).trim().slice(0,4)||'M',text:l.slice(i+1).trim()}:null}).filter(Boolean).slice(0,4);
+  saveMacroPages();renderMacros();toast('sayfa '+(S.macroPages.page+1)+' kaydedildi');
+}
+function renderMacros(){
+  document.querySelectorAll('.macro-key').forEach(e=>e.remove());
+  const rows=document.querySelectorAll('#minikbd .krow');const last=rows[rows.length-1];
+  S.macroPages.pages[S.macroPages.page].forEach(m=>{
+    const k=document.createElement('div');k.className='key macro-key';k.textContent=m.label;
+    k.title='makro: '+m.text;k.onclick=()=>{vibrate(6);send({t:'text',s:m.text})};
+    last.appendChild(k);
+  });
+  const pg=document.createElement('div');pg.className='key macro-key';pg.style.color='var(--acc)';
+  pg.textContent='S'+(S.macroPages.page+1);pg.title='makro sayfası değiştir';
+  pg.onclick=()=>{S.macroPages.page=(S.macroPages.page+1)%3;saveMacroPages();renderMacros();vibrate(8);toast('makro sayfası '+(S.macroPages.page+1))};
+  last.appendChild(pg);
+}
+$('kbd-layout').onclick=()=>{S.layout=S.layout==='TR'?'EN':'TR';save('kbdLayout',S.layout);applyLayout();vibrate(8);toast('klavye düzeni: '+S.layout)};
+document.querySelector('[data-act="macro-edit"]').onclick=editMacros;
+applyLayout();renderMacros();
+
+/* ================= drawer & butonlar ================= */
+$('btn-menu').onclick=()=>$('drawer').classList.toggle('open');
+$('btn-audio').onclick=()=>{setAudio(!S.audioOn);vibrate(10)};
+$('s-vol').oninput=e=>{const v=+e.target.value;$('v-vol').textContent=v+'%';save('vol',v);if(S.gain)S.gain.gain.value=v/100};
+$('btn-f-send').onclick=()=>{const inp=document.createElement('input');inp.type='file';inp.onchange=()=>{for(const f of inp.files)upStart(f)};inp.click()};
+$('btn-f-shot').onclick=sendShotRequest;
+$('btn-f-list').onclick=()=>{reqFileList();$('file-list-modal').classList.add('open')};
+$('btn-fm-close').onclick=()=>$('file-list-modal').classList.remove('open');
+$('btn-arch').onclick=shotArchiveOpen;
+$('btn-arch-close').onclick=()=>$('archive-modal').classList.remove('open');
+// slider'ları başlangıç değerlerine çek
+$('s-vol').value=load('vol',70);$('v-vol').textContent=load('vol',70)+'%';
+$('btn-drawer-close').onclick=()=>$('drawer').classList.remove('open');
+$('btn-screen').onclick=()=>{setScreen(!S.screenOn);vibrate(10)};
+$('btn-fps').onclick=()=>{S.fps=S.fps>=30?2:S.fps+5;$('s-fps').value=S.fps;$('v-fps').textContent=S.fps;save('fps',S.fps);if(S.screenOn)send({t:'stream-set',fps:S.fps,q:S.q})};
+/* GECE MODU: ekranı kısıp göz yormayan sıcak renk (sadece görsel — akışa dokunmaz) */
+$('btn-night').onclick=()=>{
+  S.night=!S.night;save('night',S.night?'1':'');
+  const c=$('screen-canvas');
+  if(c)c.style.filter=S.night?'brightness(0.7) sepia(0.35) hue-rotate(-15deg)':'';
+  $('btn-night').textContent=S.night?'☀️':'🌙';
+  document.body.classList.toggle('night',S.night);
+};
+/* MOBİL VERİ TASARRUFU: bağlantı türünü dinle — 2G/3G/havaş ağda otomatik kıs */
+(function dataSaver(){
+  const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  if(!c)return;
+  const apply=()=>{
+    const t=(c.effectiveType||'').toLowerCase();
+    const slow=t==='slow-2g'||t==='2g'||t==='3g';
+    const want=slow?{fps:Math.min(S.fps,6),q:Math.min(S.q,45)}:null;
+    if(want&&(S.fps>want.fps||S.q>want.q)){
+      S.fps=want.fps;S.q=want.q;save('fps',S.fps);save('q',S.q);
+      $('s-fps').value=S.fps;$('v-fps').textContent=S.fps;
+      if(S.screenOn)send({t:'stream-set',fps:S.fps,q:S.q});
+      toast('📉 yavaş ağ: akış otomatik kısıldı ('+S.fps+'fps)');
+    }
+  };
+  c.addEventListener('change',apply);apply();
+})();
+$('s-fps').oninput=e=>{S.fps=+e.target.value;$('v-fps').textContent=S.fps;save('fps',S.fps);if(S.screenOn){clearTimeout(S.fpsT);S.fpsT=setTimeout(()=>send({t:'stream-set',fps:S.fps,q:S.q}),250)}};
+$('s-fps').onchange=()=>{if(S.screenOn)setScreen(true)};
+$('s-q').oninput=e=>{S.q=+e.target.value;$('v-q').textContent=(S.q/100).toFixed(2)+'x';save('q',S.q);if(S.screenOn){clearTimeout(S.qT);S.qT=setTimeout(()=>send({t:'stream-set',fps:S.fps,q:S.q}),250)}};
+$('s-q').onchange=()=>{if(S.screenOn)setScreen(true)};
+$('s-spd').oninput=e=>{S.spd=+e.target.value/10;$('v-spd').textContent=S.spd+'x';save('spd',+e.target.value)};
+$('btn-forget').onclick=async()=>{
+  if(!confirm('Bu cihazın tokenı silinecek. Emin misin?'))return;
+  localStorage.removeItem('pk_token');localStorage.removeItem('pk_devname');
+  location.reload();
+};
+// slider'ları başlangıç değerlerine çek
+$('s-fps').value=S.fps;$('v-fps').textContent=S.fps;
+$('s-q').value=S.q;$('v-q').textContent=(S.q/100).toFixed(2)+'x';
+$('s-spd').value=S.spd*10;$('v-spd').textContent=S.spd+'x';
+
+/* ================= ekran yönetimi ================= */
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  $('scr-'+name).classList.add('on');
+  if(name==='main'){document.documentElement.requestFullscreen?.().catch(()=>{})}
+  else{document.exitFullscreen?.().catch(()=>{})}
+}
+document.addEventListener('fullscreenchange',()=>{
+  if(!document.fullscreenElement&&S.authed){
+    // fullscreen kapandıysa tekrar iste (bazı tarayıcılar zaten açıkken no-op)
+  }
+});
+
+/* ================= QR tarama ================= */
+let qrStream=null,qrRAF=0,qrCanvas=null;
+function qrStop(){
+  cancelAnimationFrame(qrRAF);qrRAF=0;
+  if(qrStream){qrStream.getTracks().forEach(t=>t.stop());qrStream=null}
+  $('qr-modal').classList.remove('open');
+}
+function qrStart(){
+  $('qr-modal').classList.add('open');
+  $('qr-status').textContent='kamera başlatılıyor…';
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$('qr-status').textContent='kamera desteklenmiyor';return}
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280}},audio:false})
+    .then(st=>{qrStream=st;const v=$('qr-video');v.srcObject=st;return v.play()})
+    .then(()=>{$('qr-status').textContent='PC ekranındaki QR kodu kameraya göster';qrTick()})
+    .catch(e=>{$('qr-status').textContent='kamera açılamadı: '+e.name});
+}
+function qrTick(){
+  if(!qrStream)return;
+  const v=$('qr-video');
+  if(v.readyState>=2&&window.jsQR){
+    if(!qrCanvas)qrCanvas=document.createElement('canvas');
+    const vx=qrCanvas.getContext('2d',{willReadFrequently:true});
+    const w=Math.min(480,v.videoWidth||640),h=Math.round(w*(v.videoHeight||480)/(v.videoWidth||640));
+    if(w>0&&h>0){
+      if(qrCanvas.width!==w){qrCanvas.width=w;qrCanvas.height=h}
+      vx.drawImage(v,0,0,w,h);
+      const img=vx.getImageData(0,0,w,h);
+      const res=window.jsQR(img.data,w,h,{inversionAttempts:'dontInvert'});
+      if(res&&res.data){
+        const parts=res.data.split('|');
+        // PANPI1: LAN (host:port) · PANPI2: mobil veri (tam https URL, relay üzerinden)
+        if(parts[0]==='PANPI1'&&parts[1]&&parts[2]){
+          $('in-addr').value=parts[1];
+          $('in-code').value=parts[2].toUpperCase();
+          if(parts[3])save('pairfp',parts[3].replace(/\s+/g,'')); // sertifika parmak izi öneki (pinning)
+          save('addr',parts[1]);save('forceTLS',parts[1].startsWith('https://')?'1':'');
+          qrStop();
+          setStatus('QR okundu ✓ eşleştiriliyor…');
+          pairAndConnect();
+          return;
+        }
+        if(parts[0]==='PANPI2'&&parts[1]&&parts[2]){
+          let a=parts[1].replace(/^https?:\/\//,'').replace(/\/+$/,'');
+          $('in-addr').value=a;
+          $('in-code').value=parts[2].toUpperCase();
+          if(parts[3])save('pairfp',parts[3].replace(/\s+/g,'')); // sertifika parmak izi öneki
+          save('addr',a);save('forceTLS','1'); // trycloudflare her zaman https
+          // opsiyonel 4./5. parça: hub:ip:port (A5 sunucu) — A5 uygulamasına otomatik yaz
+          for(const seg of parts.slice(3)){
+            if(seg.startsWith('hub:')){store('a5_host',seg.slice(4));toast('📟 hub kaydedildi: '+seg.slice(4))}
+          }
+          qrStop();
+          setStatus('QR okundu ✓ (mobil veri modu) eşleştiriliyor…');
+          pairAndConnect();
+          return;
+        }
+        if(parts[0]==='PANPI3'&&parts[1]&&parts[2]){
+          // PANPI3: LAN + kod + opsiyonel hub — https varsayılan
+          let a=parts[1].replace(/^https?:\/\//,'');
+          $('in-addr').value=a;
+          $('in-code').value=parts[2].toUpperCase();
+          save('addr',a);save('forceTLS','1');
+          for(const seg of parts.slice(3)){
+            if(seg.startsWith('hub:')){store('a5_host',seg.slice(4));toast('📟 hub kaydedildi: '+seg.slice(4))}
+          }
+          qrStop();
+          setStatus('QR okundu ✓ eşleştiriliyor…');
+          pairAndConnect();
+          return;
+        }
+      }
+    }
+  }
+  qrRAF=requestAnimationFrame(qrTick);
+}
+
+/* ================= başlangıç ================= */
+$('btn-pair').onclick=pairAndConnect;
+$('btn-connect').onclick=connectWS;
+$('btn-scan').onclick=qrStart;
+$('btn-qr-close').onclick=qrStop;
+window.__panpiScan=qrStart; // APK köprüsü: requestScan() bunu çağırır
+/* ---- sabit keşif: PC tünel adresini GitHub Pages'a yazar; telefon kayıtlı adres
+   çalışmadığında oradan otomatik bulur. Sessiz: başarısızlık akışı etkilemez. ---- */
+const DISCOVER_URL='https://minikluffy.github.io/panpikontrol-site/data/relay.json';
+/* keşif zinciri: 1) A5 hub (ev ağındaysa en hızlı+taze) 2) GitHub relay.json 3) null */
+async function discoverFromHub(){
+  const hub=(load('a5_host','')||'').trim(),tk=load('a5_token','');
+  if(!hub||!tk)return null;
+  try{
+    const c=new AbortController(),t=setTimeout(()=>c.abort(),2500);
+    const r=await fetch('http://'+hub+'/discover',{headers:{'Authorization':'Bearer '+tk},signal:c.signal,cache:'no-store'});
+    clearTimeout(t);
+    if(!r.ok)return null;
+    const j=await r.json();
+    // en taze PC kaydını al (12 saatten bayatlar hub'ta zaten gizli)
+    let best=null;
+    for(const p of Object.values(j.pcs||{}))if(!best||p.ts>best.ts)best=p;
+    if(!best)return null;
+    return best.relay?best.relay.replace(/^https?:\/\//,''):(best.lan||null);
+  }catch(_){return null}
+}
+async function discoverFromGitHub(){
+  try{
+    const r=await fetch(DISCOVER_URL+'?t='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return null;
+    const j=await r.json();
+    if(j&&j.relay&&/\.trycloudflare\.com/i.test(j.relay))return j.relay.replace(/^https?:\/\//,'');
+    if(j&&j.lan)return j.lan;
+    return null;
+  }catch(_){return null}
+}
+async function discoverAddr(){
+  return await discoverFromHub()||await discoverFromGitHub();
+}
+async function autoRepairAddr(){
+  const saved=addrOf();if(!saved)return; // hiç adres yoksa kullanıcı QR/elle girer
+  // kayıtlı adresi sağlık kontrolünden geçir (2 sn timeout)
+  const base=/\.trycloudflare\.com/i.test(saved)?`https://${saved}`:(location.protocol==='https:'||tlsForced()?`https://${saved}`:`http://${saved}`);
+  let alive=false;
+  try{const c=new AbortController();const t=setTimeout(()=>c.abort(),2500);const r=await fetch(base+'/health',{signal:c.signal});clearTimeout(t);alive=r.ok}catch(_){}
+  if(alive)return; // kayıtlı adres sağlam — dokunma
+  const found=await discoverAddr();
+  if(found&&found!==saved){
+    $('in-addr').value=found;save('addr',found);
+    setStatus('📡 adres güncellendi (PC yeniden başlamış olabilir) — bağlanıyor…');
+    if(tokenOf())connectWS();
+  }else{
+    setStatus('kayıtlı adrese ulaşılamadı ve keşif dosyası boş — PC açık mı?',1);
+  }
+}
+(function init(){
+  // ajan bu sayfayı servis ediyorsa adresi otomatik doldur
+  if(location.protocol==='http:'||location.protocol==='https:'){
+    const host=location.host;
+    // yalnızca kayıtlı adres yoksa otomatik doldur (kaydı ezme!)
+    if(host&&!/:443$/.test(host)&&!addrOf()){$('in-addr').value=host}
+  }
+  const a=addrOf();if(a&&!$('in-addr').value){$('in-addr').value=a}
+  if(tokenOf()&&a){
+    $('btn-connect').style.display='';
+    $('btn-pair').textContent='YENİDEN EŞLEŞTİR (cihaz değiştir)';
+    setStatus('kayıtlı cihaz: '+(load('devname','—'))+' · direkt bağlanabilirsin');
+    autoRepairAddr(); // keşif: kayıtlı adres ölmüşse relay.json'dan tazele
+  }
+  // gece modu tercihi baştan uygula
+  if(load('night','')==='1'){try{$('btn-night').click()}catch(_){}}
+})();
+// sayfa görünürlüğü: arka planda akışı kıs (pil!); dönünce wake lock yenile
+document.addEventListener('visibilitychange',()=>{
+  if(!S.authed)return;
+  if(document.hidden){releaseWake()}
+  else{requestWake()}
+});
+</script>
+</body>
+</html>
