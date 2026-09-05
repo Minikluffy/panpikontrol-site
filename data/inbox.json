@@ -1,1 +1,10 @@
-{"list":[]}
+{
+ "list": [
+  {
+   "id": "mmtp12q91f9bw",
+   "ts": 1788651759205,
+   "msg": "PREVIEW E2E TEST: Bu mesaj site arayüzünden gönderildi. INBOX.md'ye düşerse mesaj kutusu tamamen çalışıyor demektir.kend",
+   "from": "site"
+  }
+ ]
+}
