@@ -274,6 +274,32 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
       </div>
     </div>
 
+    <!-- A5 ekran overlay (tam ekran) -->
+    <div id="a5sc-overlay" style="display:none;position:fixed;inset:0;z-index:99;background:#000;flex-direction:column">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line)">
+        <b style="font-size:12px">📱 A5 EKRANI</b>
+        <span id="a5sc-st" style="font-size:9px;color:var(--dim)">kapalı</span>
+        <div style="flex:1"></div>
+        <button class="tb-btn" id="a5sc-close">✕</button>
+      </div>
+      <div id="a5sc-wrap" style="flex:1;position:relative;overflow:hidden;touch-action:none;cursor:crosshair;background:#000">
+        <img id="a5sc-img" style="width:100%;height:100%;object-fit:contain;display:block" alt="A5 ekranı">
+        <div id="a5sc-msg" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;color:var(--dim);font-size:11px;background:rgba(0,0,0,.65);text-align:center;padding:24px;line-height:1.7"></div>
+      </div>
+      <div style="display:flex;gap:5px;padding:8px 10px;background:var(--panel);border-top:1px solid var(--line)">
+        <button class="mini" data-a5k="home" style="flex:1">🏠</button>
+        <button class="mini" data-a5k="back" style="flex:1">⬅</button>
+        <button class="mini" data-a5k="recents" style="flex:1">▤</button>
+        <button class="mini" data-a5k="power" style="flex:1">⏻</button>
+        <button class="mini" data-a5k="volup" style="flex:1">🔊+</button>
+        <button class="mini" data-a5k="voldown" style="flex:1">🔊−</button>
+      </div>
+      <div style="display:flex;gap:5px;padding:0 10px 10px;background:var(--panel)">
+        <input id="a5sc-text" placeholder="telefona yaz…" style="flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:8px;font-size:12px;border-radius:6px" autocapitalize="off" autocomplete="off">
+        <button class="mini" id="a5sc-send">YAZ</button>
+      </div>
+    </div>
+
     <!-- ayar çekmecesi -->
     <div id="drawer">
       <div class="d-head"><b>AYARLAR</b><button class="tb-btn" id="btn-drawer-close">✕</button></div>
@@ -342,6 +368,16 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
         <div class="sec"><h4>HASSAS İMLEÇ <span id="acc-badge" style="display:none;background:var(--acc);color:#04120a;border-radius:8px;padding:1px 6px;margin-left:6px;font-size:9px">AKTİF</span></h4>
           <div style="font-size:9px;color:var(--dim)">Uzaktan fare kontrolünde Windows fare ivmesini otomatik kapatır (birebir 1:1 imleç). Kontrol bitince 30 sn sonra eski ayara döner. Bilgisayar başındayken normal his için kapat.</div>
           <button class="mini" id="acc-toggle" style="margin-top:8px">KAPALI</button>
+        </div>
+        <div class="sec"><h4>📱 A5 KONTROL <span id="a5-badge" style="display:none;background:var(--acc);color:#04120a;border-radius:8px;padding:1px 6px;margin-left:6px;font-size:9px">KAYITLI</span></h4>
+          <div style="font-size:9px;color:var(--dim)">Ev sunucusu A5'in ekranını izle + dokunmatik kontrol (evde LAN, dışarıda PC köprüsü). Ekran için A5'te root (SuperSU) gerekir.</div>
+          <div class="field" style="margin-top:6px"><input id="a5-host-in" placeholder="A5 adresi (örn: 192.168.1.50:8443)" autocapitalize="off" autocomplete="off"></div>
+          <div class="field" style="margin-top:4px"><input id="a5-token-in" type="password" placeholder="HUB TOKEN" autocomplete="off"></div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="mini" id="a5-save">💾 KAYDET</button>
+            <button class="mini" id="a5sc-open">🖥 EKRANI AÇ</button>
+          </div>
+          <div id="a5-st" style="font-size:9px;color:var(--dim);margin-top:6px">—</div>
         </div>
         <div class="sec"><h4>UYGULAMALAR</h4>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
@@ -2100,7 +2136,7 @@ function qrTick(){
           save('addr',a);save('forceTLS','1'); // trycloudflare her zaman https
           // opsiyonel 4./5. parça: hub:ip:port (A5 sunucu) — A5 uygulamasına otomatik yaz
           for(const seg of parts.slice(3)){
-            if(seg.startsWith('hub:')){store('a5_host',seg.slice(4));toast('📟 hub kaydedildi: '+seg.slice(4))}
+            if(seg.startsWith('hub:')){a5QRSave(seg.slice(4));toast('📟 hub kaydedildi: '+seg.slice(4))}
           }
           qrStop();
           setStatus('QR okundu ✓ (mobil veri modu) eşleştiriliyor…');
@@ -2114,7 +2150,7 @@ function qrTick(){
           $('in-code').value=parts[2].toUpperCase();
           save('addr',a);save('forceTLS','1');
           for(const seg of parts.slice(3)){
-            if(seg.startsWith('hub:')){store('a5_host',seg.slice(4));toast('📟 hub kaydedildi: '+seg.slice(4))}
+            if(seg.startsWith('hub:')){a5QRSave(seg.slice(4));toast('📟 hub kaydedildi: '+seg.slice(4))}
           }
           qrStop();
           setStatus('QR okundu ✓ eşleştiriliyor…');
@@ -2200,6 +2236,96 @@ async function autoRepairAddr(){
   if(load('night','')==='1'){try{$('btn-night').click()}catch(_){}}
 })();
 // sayfa görünürlüğü: arka planda akışı kıs (pil!); dönünce wake lock yenile
+/* ═══════════ A5 KONTROL (ekran izle + dokunmatik) ═══════════
+   Bağlantı sırası: 1) LAN http://<a5_host> (evde) 2) PC köprüsü (dışarıda —
+   ajanın /a5s uçları üzerinden, eşleşme tokenı ile). */
+let a5scT=null;
+function a5get(k){try{return localStorage.getItem(k)}catch(_){return null}}
+function a5set(k,v){try{localStorage.setItem(k,v)}catch(_){}}
+function a5host(){return (a5get('a5_host')||'').trim().replace(/^https?:\/\//,'')}
+function a5tk(){return a5get('a5_token')||''}
+async function a5api(path,opts,screen){
+  opts=opts||{};
+  const mk=(tok,extra)=>Object.assign({},opts,{headers:Object.assign({'Authorization':'Bearer '+tok},extra||opts.headers||{}),cache:'no-store',signal:AbortSignal.timeout(6500)});
+  if(a5host()){
+    try{
+      const r=await fetch('http://'+a5host()+path,mk(a5tk()));
+      if(r.status!==502)return r;
+    }catch(_){}
+  }
+  const a=load('addr',''),t=load('token','');
+  if(a&&t){
+    const b=/\\.trycloudflare\\.com/i.test(a)?'https://'+a.replace(/^https?:\/\//,''):'http://'+a;
+    const pr=screen?'/a5s':'/a5';
+    try{
+      const r=await fetch(b+pr+path,Object.assign({},opts,{headers:Object.assign({'Authorization':'Bearer '+t},opts.headers||{}),cache:'no-store',signal:AbortSignal.timeout(8000)}));
+      if(r.status!==502)return r;
+    }catch(_){}
+  }
+  throw new Error('A5 erişilemedi');
+}
+function a5scMsg(t){const m=$('a5sc-msg');if(m){m.textContent=t;m.style.display='flex'}}
+function a5scOpen(){
+  const ov=$('a5sc-overlay');
+  ov.style.display='flex';
+  $('a5sc-st').textContent='bağlanıyor…';
+  a5scMsg('A5 ekranı açılıyor…');
+  a5scFrame();
+  clearInterval(a5scT);a5scT=setInterval(a5scFrame,1600);
+  $('drawer').classList.remove('open');
+}
+function a5scClose(){clearInterval(a5scT);a5scT=null;$('a5sc-overlay').style.display='none'}
+async function a5scFrame(){
+  const img=$('a5sc-img');
+  try{
+    const r=await a5api('/screen?t='+Date.now(),{},true);
+    if(r.status===401){a5scMsg('✗ token geçersiz — A5 panelinden düzelt');return}
+    if(r.status===501){a5scMsg('✗ root gerekli — A5\'e SuperSU kurulmalı');return}
+    if(!r.ok){a5scMsg('✗ ekran alınamadı ('+r.status+')');return}
+    img.src=URL.createObjectURL(await r.blob());
+    $('a5sc-msg').style.display='none';
+    $('a5sc-st').textContent='CANLI'+(a5host()?'':' · köprü');
+  }catch(e){a5scMsg('A5 kapalı / köprü yok — A5\'te: bash start-all.sh')}
+}
+async function a5scInput(obj){
+  try{
+    const r=await a5api('/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)},true);
+    if(r.status===501)a5scMsg('✗ root gerekli (SuperSU)');
+  }catch(e){a5scMsg('A5 erişilemiyor')}
+}
+$('a5-save').onclick=()=>{
+  a5set('a5_host',$('a5-host-in').value.trim());
+  a5set('a5_token',$('a5-token-in').value.trim());
+  $('a5-st').textContent='✓ kaydedildi'+(a5host()?' · '+a5host():'');
+  $('a5-badge').style.display=a5host()?'inline':'none';
+};
+$('a5sc-open').onclick=a5scOpen;
+$('a5sc-close').onclick=a5scClose;
+document.querySelectorAll('[data-a5k]').forEach(b=>b.onclick=()=>a5scInput({type:'key',key:b.dataset.a5k}));
+$('a5sc-send').onclick=()=>{const t=$('a5sc-text').value;if(!t)return;a5scInput({type:'text',text:t});$('a5sc-text').value=''};
+(function(){
+  const wrap=$('a5sc-wrap'),img=$('a5sc-img');
+  let sx=0,sy=0,act=false,moved=false,t0=0;
+  wrap.addEventListener('pointerdown',e=>{act=true;moved=false;t0=Date.now();sx=e.clientX;sy=e.clientY;try{wrap.setPointerCapture(e.pointerId)}catch(_){}});
+  wrap.addEventListener('pointermove',e=>{if(act&&Math.hypot(e.clientX-sx,e.clientY-sy)>14)moved=true});
+  wrap.addEventListener('pointerup',e=>{
+    if(!act)return;act=false;
+    const r=wrap.getBoundingClientRect(),nx=img.naturalWidth||1,ny=img.naturalHeight||1;
+    const x=Math.round((e.clientX-r.left)*(nx/r.width)),y=Math.round((e.clientY-r.top)*(ny/r.height));
+    if(moved)a5scInput({type:'swipe',x:x,y:y,x2:x,y2:y,dur:Math.min(900,Math.max(150,Date.now()-t0))});
+    else a5scInput({type:'tap',x:x,y:y});
+  });
+  wrap.addEventListener('pointercancel',()=>{act=false});
+})();
+$('a5-host-in').value=a5host();
+$('a5-token-in').value=a5tk();
+$('a5-st').textContent=a5host()?('kayıtlı: '+a5host()):'henüz kayıt yok — QR okut veya elle gir';
+$('a5-badge').style.display=a5host()?'inline':'none';
+
+/* A5 QR eşleştirme: hub:IP:PORT — store() tanımsızdı, localStorage'a yaz */
+function a5QRSave(h){try{localStorage.setItem('a5_host',h)}catch(_){}}
+
+/* visibilitychange (orijinal) */
 document.addEventListener('visibilitychange',()=>{
   if(!S.authed)return;
   if(document.hidden){releaseWake()}
