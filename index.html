@@ -620,7 +620,9 @@ async function a5api(path,opts,screen){
     if(r.status!==502)return r; // 502 = hedef yok → köprüye geç
   }catch(_){}
   // 2) PC köprüsü (tünel) — telefon uygulamasının eşleşmesi varsa
-  const a=load('addr',''),t=load('token','');
+  //    (uygulama pk_ prefiksli yazar; site hem düz hem pk_ okur)
+  let a=load('addr',''),t=load('token','');
+  if(!a||!t){a=load('pk_addr','');t=load('pk_token','')}
   if(a&&t){
     const base=/\\.trycloudflare\\.com/i.test(a)?'https://'+a.replace(/^https?:\/\//,''):'http://'+a;
     const prefix=screen?'/a5s':'/a5';
@@ -756,7 +758,7 @@ async function durumCheck(){
   el.innerHTML='<div class="kv">kontrol ediliyor…</div>';
   const rows=[];
   const row=(name,ok,detail)=>rows.push('<div class="card"><div class="ic">'+(ok?'🟢':'🔴')+'</div><div class="t"><b>'+name+'</b><span>'+detail+'</span></div></div>');
-  const savedAddr=load('addr','');
+  const savedAddr=load('addr','')||load('pk_addr','');
   if(savedAddr){
     const base=/\.trycloudflare\.com/i.test(savedAddr)?'https://'+savedAddr:'http://'+savedAddr;
     try{
