@@ -603,28 +603,51 @@ $('msg-pull').onclick=async()=>{
   }catch(e){$('msg-info').textContent='✗ okunamadı: '+(e.message||e)}
 };
 
-/* ═══════════ A5 HUB İSTEMCİSİ ═══════════ */
+/* ═══════════ A5 HUB İSTEMCİSİ ═══════════
+   A5'e iki yoldan ulaşılır:
+   1) LAN:  http://<a5_host> (evde)
+   2) KÖPRÜ: PC tüneli üzerinden /a5* (ev dışı) — telefon uygulamasının
+      eşleşme verisi (addr+token) aynı origin'de olduğundan otomatik kullanılır. */
 function a5base(){const h=($('a5-host').value||read('a5_host')||'').trim().replace(/^https?:\/\//,'');return 'http://'+h}
 function a5hdr(){return {'Authorization':'Bearer '+(read('a5_token')||'')}}
 function a5Show(){$('a5-login').classList.toggle('hidden',!!read('a5_token'));$('a5-main').classList.toggle('hidden',!read('a5_token'))}
+async function a5api(path,opts,screen){
+  opts=opts||{};
+  const merge=(extra)=>Object.assign({},opts,{headers:Object.assign({'Authorization':'Bearer '+(read('a5_token')||'')},extra||{}),cache:'no-store',signal:AbortSignal.timeout(6500)});
+  // 1) LAN
+  try{
+    const r=await fetch(a5base()+path,merge(opts.headers));
+    if(r.status!==502)return r; // 502 = hedef yok → köprüye geç
+  }catch(_){}
+  // 2) PC köprüsü (tünel) — telefon uygulamasının eşleşmesi varsa
+  const a=load('addr',''),t=load('token','');
+  if(a&&t){
+    const base=/\\.trycloudflare\\.com/i.test(a)?'https://'+a.replace(/^https?:\/\//,''):'http://'+a;
+    const prefix=screen?'/a5s':'/a5';
+    try{
+      const r=await fetch(base+prefix+path,Object.assign({},opts,{headers:Object.assign({'Authorization':'Bearer '+t},opts.headers||{}),cache:'no-store',signal:AbortSignal.timeout(8000)}));
+      if(r.status!==502)return r;
+    }catch(_){}
+  }
+  throw new Error('A5 erişilemedi (LAN + PC köprüsü denendi)');
+}
 async function a5ping(){
   if(!read('a5_token'))return;
   try{
-    const c=new AbortController(),t=setTimeout(()=>c.abort(),4000);
-    const r=await fetch(a5base()+'/health',{headers:a5hdr(),signal:c.signal,cache:'no-store'});clearTimeout(t);
+    const r=await a5api('/health');
     if(r.status===423){$('a5-status').innerHTML='<span style="color:var(--warn)">🔒 hub kilitli (5 hata) — 15 dk bekle</span>';return}
     if(r.status===401){localStorage.removeItem('a5_token');a5Show();$('a5-info').textContent='✗ token geçersiz — tekrar gir';return}
     const j=await r.json();
-    $('a5-status').innerHTML='🟢 hub açık · çalışma: '+Math.floor(j.up/60)+' dk '+j.up%60+' sn';
+    $('a5-status').innerHTML='🟢 hub açık · çalışma: '+Math.floor(j.up/60)+' dk '+j.up%60+' sn'+(load('addr','')?' · 📡 köprü hazır':'');
     await a5Load();
   }catch(e){$('a5-status').innerHTML='<span style="color:var(--warn)">🔴 hub erişilemedi — A5 açık mı, aynı ağda mı?</span>'}
 }
 async function a5Load(){
   try{
-    const d=await (await fetch(a5base()+'/discover',{headers:a5hdr(),cache:'no-store'})).json();
+    const d=await (await a5api('/discover')).json();
     const list=Object.values(d.pcs||{});
     $('a5-pcs').innerHTML=list.map(p=>p.name+' · '+p.lan+(p.relay?' · 📡':'')).join('<br>')||'kayıtlı PC yok';
-    const ev=await (await fetch(a5base()+'/events?n=30',{headers:a5hdr(),cache:'no-store'})).json();
+    const ev=await (await a5api('/events?n=30')).json();
     $('a5-events').innerHTML=(ev.list||[]).map(x=>'<div class="note"><div class="nt"><span>'+new Date(x.ts).toLocaleString('tr-TR')+'</span><span>'+x.type+'</span></div><div class="nb">'+esc(x.detail||'')+'</div></div>').join('')||'<div class="kv">olay yok</div>';
   }catch(e){}
 }
@@ -653,7 +676,7 @@ $('a5-wol').onclick=async()=>{
   const mac=prompt('PC MAC adresi (örn: 44:03:2c:29:63:64):','');
   if(!mac)return;
   try{
-    const r=await fetch(a5base()+'/wol',{method:'POST',headers:{...a5hdr(),'Content-Type':'application/json'},body:JSON.stringify({mac})});
+    const r=await a5api('/wol',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mac})});
     const j=await r.json().catch(()=>({}));
     $('a5-mac-show').textContent=mac;
     if(r.ok){$('a5-mac-show').textContent=mac+' ✓ gönderildi'}else{$('a5-mac-show').textContent=j.error||'hata'}
@@ -682,19 +705,19 @@ async function a5scFrame(){
   if(!a5scOn)return;
   const img=$('a5sc-img');
   try{
-    const r=await fetch(a5remBase()+'/screen?t='+Date.now(),{headers:a5hdr(),cache:'no-store'});
+    const r=await a5api('/screen?t='+Date.now(),{},true);
     if(r.status===401){a5scMsg('✗ yetkisiz (hub tokenı geçerli değil)');return}
     if(r.status===501){a5scMsg('✗ root gerekli — A5\'e SuperSU kurulmalı');return}
     if(!r.ok){a5scMsg('✗ ekran alınamadı ('+r.status+')');return}
     const b=await r.blob();
     img.src=URL.createObjectURL(b);
     $('a5sc-msg').classList.add('hidden');
-  }catch(e){a5scMsg('A5 ekran servisi kapalı — a5-remote.js çalışıyor mu?')}
+  }catch(e){a5scMsg('A5 ekran servisi kapalı — a5-remote.js çalışıyor mu? (LAN yoksa PC tüneli köprü olur)')}
 }
 function a5scMsg(t){const m=$('a5sc-msg');m.textContent=t;m.classList.remove('hidden')}
 async function a5scInput(obj){
   try{
-    const r=await fetch(a5remBase()+'/input',{method:'POST',headers:{...a5hdr(),'Content-Type':'application/json'},body:JSON.stringify(obj)});
+    const r=await a5api('/input',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)},true);
     if(r.status===501){a5scMsg('✗ root gerekli (SuperSU)');return}
   }catch(e){a5scMsg('A5 erişilemiyor')}
 }
