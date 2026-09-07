@@ -118,6 +118,8 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
 .slider-row{display:flex;flex-direction:column;gap:2px;padding:4px 0}
 .slider-row .lbl{display:flex;justify-content:space-between;font-size:10px;color:var(--dim)}
 #latency{font-size:10px;color:var(--dim);text-align:center;padding:4px}
+#aud-meter{width:34px;height:5px;background:#1b2430;border-radius:3px;overflow:hidden;flex:none;align-self:center}
+#aud-meter i{display:block;height:100%;width:0;background:var(--acc);transition:width 80ms linear}
 
 /* dosya aktarımı */
 .mini{background:var(--panel2);border:1px solid var(--line);color:var(--acc);font-size:10px;
@@ -191,6 +193,7 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
       <button class="tb-btn" id="btn-fps" style="display:none">10 fps</button>
       <button class="tb-btn" id="btn-res" style="display:none">720p</button>
       <button class="tb-btn" id="btn-audio" title="PC sesi">🔊</button>
+      <div id="aud-meter" title="PC ses seviyesi" style="display:none"><i></i></div>
       <button class="tb-btn" id="btn-night" title="Gece modu (düşük ışık)">🌙</button>
       <div class="pcname" id="pc-name">—</div>
       <button class="tb-btn" id="btn-lat">0ms</button>
@@ -824,7 +827,8 @@ function onAudioPkt(meta,pcm){
   if(meta&&meta.fmt){S.audioRate=meta.rate||48000;S.audioCh=meta.ch||2;return}
   // gürültü kapısı: düşük amplitüdlü paketleri at (loopback gürültü zemini sürekli veri üretir)
   let peak=0;
-  for(let i=0;i+1<pcm.length;i+=2){const v=pcm[i]|(pcm[i+1]<<8);const s=(v&0x8000)?v-0x10000:v;const a=s<0?-s:s;if(a>peak)peak=a;if(peak>32)break}
+  for(let i=0;i+1<pcm.length;i+=2){const v=pcm[i]|(pcm[i+1]<<8);const s=(v&0x8000)?v-0x10000:v;const a=s<0?-s:s;if(a>peak)peak=a}
+  S.audLvl=Math.max(peak/32767,(S.audLvl||0)*0.82);paintAudMeter(); // sönümlü tepe göstergesi
   const nowT=Date.now();
   if(peak>=32)S.noiseUntil=nowT+800; // 800ms histerezis
   else if(nowT>=(S.noiseUntil||0))return; // kapı kapalı: gürültü
@@ -862,9 +866,17 @@ function scheduleAudio(){
     }
   },0);
 }
+function paintAudMeter(){
+  const m=$('aud-meter');if(!m)return;
+  const lvl=S.audLvl||0;
+  const bar=m.firstElementChild;
+  if(bar){bar.style.width=Math.min(100,lvl*160)+'%';bar.style.background=lvl>0.5?'#f85149':lvl>0.15?'#e3b341':'#3ddc84'}
+}
 function setAudio(on){
   S.audioOn=on;
   $('btn-audio').classList.toggle('on',on);
+  const m=$('aud-meter');if(m)m.style.display=on?'':'none';
+  if(!on){S.audLvl=0;paintAudMeter()}
   if(on){ensureAudioGraph();if(S.audioCtx&&S.audioCtx.state==='suspended')S.audioCtx.resume();if(S.authed)send({t:'audio',on:true})}
   else if(S.authed)send({t:'audio',on:false});
   save('audio',on?1:0);
