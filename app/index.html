@@ -373,9 +373,11 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
           <div style="font-size:9px;color:var(--dim)">Ev sunucusu A5'in ekranını izle + dokunmatik kontrol (evde LAN, dışarıda PC köprüsü). Ekran için A5'te root (SuperSU) gerekir.</div>
           <div class="field" style="margin-top:6px"><input id="a5-host-in" placeholder="A5 adresi (örn: 192.168.1.50:8443)" autocapitalize="off" autocomplete="off"></div>
           <div class="field" style="margin-top:4px"><input id="a5-token-in" type="password" placeholder="HUB TOKEN" autocomplete="off"></div>
-          <div style="display:flex;gap:6px;margin-top:6px">
+          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
             <button class="mini" id="a5-save">💾 KAYDET</button>
             <button class="mini" id="a5sc-open">🖥 EKRANI AÇ</button>
+            <button class="mini" id="a5cam-open">📷 KAMERA</button>
+            <button class="mini" id="a5mic-btn">🎙 MIK 5sn</button>
           </div>
           <div id="a5-st" style="font-size:9px;color:var(--dim);margin-top:6px">—</div>
         </div>
@@ -2335,6 +2337,56 @@ $('a5-badge').style.display=a5host()?'inline':'none';
 
 /* A5 QR eşleştirme: hub:IP:PORT — store() tanımsızdı, localStorage'a yaz */
 function a5QRSave(h){try{localStorage.setItem('a5_host',h)}catch(_){}}
+
+/* ═══════ A5 DONANIM: kamera + mikrofon (hub /hw/* üzerinden) ═══════ */
+function a5CamOverlay(){
+  let ov=document.getElementById('a5cam-ov');
+  if(!ov){
+    ov=document.createElement('div');ov.id='a5cam-ov';
+    ov.style.cssText='display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);flex-direction:column;align-items:center;justify-content:center;padding:10px';
+    ov.innerHTML='<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><b style="color:#3ddc84;font-size:13px">📷 A5 KAMERA</b><span id="a5cam-st" style="font-size:10px;color:#8b98a5"></span><button id="a5cam-x" style="margin-left:auto;background:#1f2a38;color:#e6edf3;border:0;border-radius:8px;padding:4px 12px;font-size:12px">✕</button></div>'+
+      '<div style="display:flex;gap:6px;margin-bottom:8px"><button id="a5cam-back" style="background:#1f2a38;color:#e6edf3;border:0;border-radius:8px;padding:6px 12px;font-size:11px">arka</button><button id="a5cam-front" style="background:#1f2a38;color:#e6edf3;border:0;border-radius:8px;padding:6px 12px;font-size:11px">ön</button></div>'+
+      '<img id="a5cam-img" style="max-width:96vw;max-height:70vh;border-radius:10px;background:#000">'+
+      '<div id="a5cam-msg" style="font-size:10px;color:#f85149;margin-top:6px;display:none"></div>';
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+async function a5CamShot(which){
+  const ov=a5CamOverlay(),img=ov.querySelector('#a5cam-img'),st=ov.querySelector('#a5cam-st'),msg=ov.querySelector('#a5cam-msg');
+  st.textContent='çekiliyor…';msg.style.display='none';
+  try{
+    const r=await a5api('/hw/cam',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cam:which})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok||!j.file){msg.textContent='kamera hatası: '+(j.error||r.status);msg.style.display='block';st.textContent='';return;}
+    const fr=await a5api('/hw/file/'+j.file+'?t='+Date.now());
+    if(!fr.ok){msg.textContent='foto indirilemedi ('+fr.status+')';msg.style.display='block';st.textContent='';return;}
+    img.src=URL.createObjectURL(await fr.blob());
+    st.textContent=new Date().toLocaleTimeString('tr-TR');
+  }catch(e){msg.textContent='A5 erişilemiyor (hub kapalı?)';msg.style.display='block';st.textContent='';}
+}
+$('a5cam-open').onclick=()=>{const ov=a5CamOverlay();ov.style.display='flex';$('drawer').classList.remove('open');a5CamShot('back');
+  ov.querySelector('#a5cam-x').onclick=()=>ov.style.display='none';
+  ov.querySelector('#a5cam-back').onclick=()=>a5CamShot('back');
+  ov.querySelector('#a5cam-front').onclick=()=>a5CamShot('front');
+};
+$('a5mic-btn').onclick=async function(){
+  const btn=this;btn.disabled=true;const old=btn.textContent;btn.textContent='⏺ kayıt…';
+  try{
+    const r=await a5api('/hw/mic/snap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secs:5})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.file){
+      btn.textContent='⬇ indiriliyor…';
+      const fr=await a5api('/hw/file/'+j.file+'?t='+Date.now());
+      if(fr.ok){
+        const b=await fr.blob();
+        const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=j.file;a.click();
+        btn.textContent='✓ indirildi';setTimeout(()=>{btn.textContent=old;btn.disabled=false;},1500);return;
+      }
+    }
+    btn.textContent='✗ hata ('+((j&&j.error)||'')+')';setTimeout(()=>{btn.textContent=old;btn.disabled=false;},1800);
+  }catch(e){btn.textContent='✗ erişilemedi';setTimeout(()=>{btn.textContent=old;btn.disabled=false;},1800);}
+};
 
 /* visibilitychange (orijinal) */
 document.addEventListener('visibilitychange',()=>{
