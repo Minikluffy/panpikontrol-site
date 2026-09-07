@@ -738,6 +738,7 @@ function handlePlain(b){ // JSON çözülemedi: etiketli ham binary
   let e;try{e=envParse(b)}catch(_){return}
   if(!e)return;
   if(e.tag===0x00)handleFrame(e.payload);
+  else if(e.tag===0x0D)handleFrame264(e.meta,e.payload);
   else if(e.tag===0x01)onFileChunk(e.meta,e.payload);
   else if(e.tag===0x02)onShot(e.meta,e.payload);
   else if(e.tag===0x03)onAudioPkt(e.meta,e.payload);
@@ -1218,11 +1219,17 @@ function handleMsg(m){
     case 'mic-done':toast('PC\'ye kaydedildi ('+fmtSize(m.size)+')');break;
     case 'mic-aborted':S.micOn=false;S.micAck=false;setMicBtn();toast('mik hatası: '+(m.msg||'iptal'));break;
     case 'mic-err':toast('mic: '+m.msg);break;
+    case 'stream-mode':{
+      if(m.codec==='h264'){S.codec='h264';toast('⚡ H.264 (NVENC) akış')}
+      else if(S.codec==='h264'){S.codec='jpeg';closeVdec()} // sunucu ffmpeg yoksa
+      break;
+    }
+    case 'h264-fail':h264Fail(m.msg||'sunucu');break;
   }
 }
 
 function handleFrame(plain){ // plain = jpeg
-  S.stats.frames++;S.stats.bytes+=plain.length;
+  drawStats(plain.length);
   const blob=new Blob([plain],{type:'image/jpeg'});
   if(S.imgUrl)URL.revokeObjectURL(S.imgUrl);
   S.imgUrl=URL.createObjectURL(blob);
@@ -1246,6 +1253,11 @@ function handleFrame(plain){ // plain = jpeg
     URL.revokeObjectURL(S.imgUrl);S.imgUrl=null;
   };
   img.src=S.imgUrl;
+  statsTick();
+}
+/* ---- istatistik ortak ---- */
+function drawStats(len){S.stats.frames++;S.stats.bytes+=len}
+function statsTick(){
   const now=Date.now();
   if(S.stats.last&&now-S.stats.last>1000){
     const kbps=Math.round(S.stats.bytes*8/1000/((now-S.stats.last)/1000));
@@ -1253,6 +1265,69 @@ function handleFrame(plain){ // plain = jpeg
     S.stats.bytes=0;S.stats.last=now;
   }else if(!S.stats.last){S.stats.last=now}
 }
+
+/* ================= H.264 (NVENC) akış + WebCodecs =================
+ * Ajan ffmpeg+NVENC ile Annex-B H.264 üretir; destekleyen telefonlarda
+ * VideoDecoder ile çözülür. Herhangi bir aşamada başarısız olursa JPEG'e dönüş.
+ */
+S.vdec=null;S.vts=0;S.vdecBusy=false;S.codec=(window.VideoDecoder?'h264':'jpeg');
+async function setupVdec(){
+  if(S.vdecBusy)return false;
+  S.vdecBusy=true;
+  try{
+    if(!window.VideoDecoder){h264Fail('WebCodecs yok');return false}
+    const cfgs=['avc1.640028','avc1.4D4028','avc1.42E01E'];
+    for(const codec of cfgs){
+      try{
+        const sup=await VideoDecoder.isConfigSupported({codec,optimizeForLatency:true});
+        if(sup&&sup.supported){
+          S.vdec=new VideoDecoder({output:f=>drawVF(f),error:e=>h264Fail('vdec: '+(e.message||e))});
+          S.vdec.configure({codec,optimizeForLatency:true});
+          S.vts=0;
+          return true;
+        }
+      }catch(_){}
+    }
+    h264Fail('codec desteklenmiyor');return false;
+  }finally{S.vdecBusy=false}
+}
+function handleFrame264(meta,p){
+  drawStats(p.length);
+  if(!S.vdec){
+    if(S.vdecBusy||!meta.key)return; // konfigürasyon sürüyor / ilk keyframe bekleniyor
+    setupVdec().then(ok=>{if(ok)handleFrame264(meta,p)});
+    return;
+  }
+  try{
+    const chunk=new EncodedVideoChunk({type:meta.key?'key':'delta',timestamp:S.vts+=33333,data:p});
+    S.vdec.decode(chunk);
+    statsTick();
+  }catch(err){h264Fail('decode: '+err.message)}
+}
+function drawVF(f){
+  const c=S.canvas;
+  if(c.width!==f.displayWidth||c.height!==f.displayHeight){c.width=f.displayWidth;c.height=f.displayHeight}
+  S.frameW=f.displayWidth;S.frameH=f.displayHeight;
+  S.ctx.save();
+  S.ctx.fillStyle='#000';S.ctx.fillRect(0,0,c.width,c.height);
+  if(S.zoom>1){
+    const zw=c.width/S.zoom,zh=c.height/S.zoom;
+    const zx=(c.width-zw)/2,zy=(c.height-zh)/2;
+    S.ctx.drawImage(f,zx,zy,zw,zh,0,0,c.width,c.height);
+  }else S.ctx.drawImage(f,0,0);
+  S.ctx.restore();
+  $('screen-off').style.display='none';
+  f.close();
+  statsTick();
+}
+function h264Fail(msg){
+  if(S.codec!=='h264')return; // zaten jpeg modunda
+  toast('⚡ H.264 açılamadı ('+msg+') — JPEG modu');
+  S.codec='jpeg';
+  closeVdec();
+  if(S.screenOn)send({t:'stream',on:true,fps:S.fps,q:S.q,codec:'jpeg'});
+}
+function closeVdec(){if(S.vdec){try{S.vdec.close()}catch(_){}S.vdec=null}}
 
 function startPing(){stopPing();S.pingT=setInterval(()=>{S.pingStart=performance.now();send({t:'ping',ts:1})},3000)}
 function stopPing(){clearInterval(S.pingT)}
@@ -1268,8 +1343,8 @@ function setScreen(on){
   $('btn-fps').style.display=on?'':'none';
   $('btn-fps').textContent=S.fps+'fps';
   $('screen-off').style.display=on?'none':'';
-  send({t:'stream',on,fps:S.fps,q:S.q});
-  if(!on&&S.canvas.width){S.ctx.fillStyle='#000';S.ctx.fillRect(0,0,S.canvas.width,S.canvas.height)}
+  send({t:'stream',on,fps:S.fps,q:S.q,codec:S.codec});
+  if(!on){closeVdec();if(S.canvas.width){S.ctx.fillStyle='#000';S.ctx.fillRect(0,0,S.canvas.width,S.canvas.height)}}
 }
 
 /* ================= touchpad mouse ================= */
@@ -1856,7 +1931,7 @@ S.mon=load('mon',-1);
 function cycleMonitor(){
   S.mon=S.mon>=2?-1:S.mon+1; // -1=tümü, 0,1,2 = tek monitör (bilinen üst sınır)
   save('mon',S.mon);
-  send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon});
+  send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon,codec:S.codec});
   toast(S.mon<0?'ekran: TÜMÜ':'ekran: monitor '+(S.mon+1));vibrate(12);
 }
 /* monitör şeridi: her ekranın tek seferlik küçük görüntüsü, dokununca geç */
@@ -1871,7 +1946,7 @@ function refreshMonStrip(){
     const id='ms'+mon+'-'+Date.now();
     const cell=document.createElement('div');cell.className='mon-cell';
     cell.innerHTML='<div class="ph">…</div><span>'+(mon<0?'TÜMÜ':'M'+(mon+1))+'</span>';
-    cell.onclick=()=>{S.mon=mon;save('mon',S.mon);send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon});toast(mon<0?'ekran: TÜMÜ':'ekran: '+(mon===0?'1.':mon===1?'2.':'3.')+' monitör');vibrate(12)};
+    cell.onclick=()=>{S.mon=mon;save('mon',S.mon);send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon,codec:S.codec});toast(mon<0?'ekran: TÜMÜ':'ekran: '+(mon===0?'1.':mon===1?'2.':'3.')+' monitör');vibrate(12)};
     box.appendChild(cell);
     // tek seferlik küçük shot: ajan mon parametresiyle capture başlatır/bitirir
     const t0=Date.now();
