@@ -380,6 +380,14 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
             <button class="mini" id="a5mic-btn">🎙 MIK 5sn</button>
             <button class="mini" id="a5live-open">🔴 CANLI</button>
             <button class="mini" id="a5sec-btn">🚨 GÜVENLİK</button>
+            <button class="mini" id="a5evt-open">📋 OLAYLAR</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+            <span style="font-size:10px;color:var(--dim)">🌙 GECE:</span>
+            <input id="a5-night-on" type="number" min="0" max="23" style="width:44px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:3px 5px;font-size:11px" placeholder="0">
+            <span style="font-size:10px;color:var(--dim)">–</span>
+            <input id="a5-night-off" type="number" min="0" max="23" style="width:44px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:3px 5px;font-size:11px" placeholder="7">
+            <button class="mini" id="a5-night-save">💾</button>
           </div>
           <div id="a5-st" style="font-size:9px;color:var(--dim);margin-top:6px">—</div>
         </div>
@@ -2450,6 +2458,71 @@ $('a5sec-btn').onclick=async function(){
   setTimeout(()=>{btn.disabled=false;},1200);
 };
 let a5liveSecT=null;
+
+/* ═══════ A5 OLAYLAR + GECE MODU SAATLERİ ═══════ */
+function a5EvtOverlay(){
+  let ov=document.getElementById('a5evt-ov');
+  if(!ov){
+    ov=document.createElement('div');ov.id='a5evt-ov';
+    ov.style.cssText='display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);flex-direction:column;align-items:center;padding:12px;overflow-y:auto';
+    ov.innerHTML='<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;width:100%"><b style="color:#3ddc84;font-size:13px">📋 A5 OLAYLAR</b><button id="a5evt-x" style="margin-left:auto;background:#1f2a38;color:#e6edf3;border:0;border-radius:8px;padding:4px 12px;font-size:12px">✕</button></div>'+
+      '<div style="display:flex;gap:6px;margin-bottom:10px"><button id="a5evt-ref" style="background:#1f2a38;color:#e6edf3;border:0;border-radius:8px;padding:5px 12px;font-size:11px">🔄 YENİLE</button></div>'+
+      '<div id="a5evt-photos" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px"></div>'+
+      '<div id="a5evt-list" style="width:100%;max-width:520px;font-size:11px;color:#c9d1d9"></div>'+
+      '<div id="a5evt-imgwrap" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.95);flex-direction:column;align-items:center;justify-content:center;gap:8px">'+
+      '<img id="a5evt-img" style="max-width:96vw;max-height:80vh;border-radius:10px">'+
+      '<div style="display:flex;gap:8px"><a id="a5evt-dl" download style="background:#1f2a38;color:#3ddc84;border:0;border-radius:8px;padding:6px 14px;font-size:12px;text-decoration:none">⬇ İNDİR</a><button id="a5evt-imgx" style="background:#1f2a38;color:#e6edf3;border:0;border-radius:8px;padding:6px 14px;font-size:12px">✕</button></div></div>';
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+async function a5EvtLoad(){
+  const ov=a5EvtOverlay(),list=ov.querySelector('#a5evt-list'),ph=ov.querySelector('#a5evt-photos');
+  list.innerHTML='<i style="color:#8b98a5">yükleniyor…</i>';ph.innerHTML='';
+  /* hareket fotoğrafları */
+  try{
+    const fr=await a5api('/hw/files');const fj=await fr.json().catch(()=>({files:[]}));
+    const secs=(fj.files||[]).filter(f=>f.startsWith('sec-')).sort().reverse().slice(0,12);
+    secs.forEach(f=>{
+      const im=document.createElement('img');
+      im.src='';im.dataset.f=f;im.style.cssText='width:104px;height:78px;object-fit:cover;border-radius:8px;background:#000;border:1px solid #1f2a38;cursor:pointer';
+      im.onclick=async()=>{
+        const w=ov.querySelector('#a5evt-imgwrap'),img=ov.querySelector('#a5evt-img');
+        img.src='';w.style.display='flex';
+        const r2=await a5api('/hw/file/'+f+'?t='+Date.now());
+        if(r2.ok){const u=URL.createObjectURL(await r2.blob());img.src=u;ov.querySelector('#a5evt-dl').href=u;ov.querySelector('#a5evt-dl').download=f;}
+      };
+      ph.appendChild(im);
+      a5api('/hw/file/'+f+'?t='+Date.now()).then(async r2=>{if(r2.ok)im.src=URL.createObjectURL(await r2.blob());}).catch(()=>{});
+    });
+    if(!secs.length)ph.innerHTML='<span style="font-size:10px;color:#8b98a5">henüz hareket fotoğrafı yok</span>';
+  }catch(e){ph.innerHTML='<span style="font-size:10px;color:#f85149">foto listesi alınamadı</span>';}
+  /* hub olayları (motion) */
+  try{
+    const er=await a5api('/events?n=60');const ej=await er.json().catch(()=>({list:[]}));
+    const evs=(ej.list||[]).filter(e=>String(e.type).indexOf('motion')>=0);
+    list.innerHTML=evs.length?evs.map(e=>'<div style="padding:5px 0;border-bottom:1px solid #1f2a38">🕐 '+new Date(e.ts).toLocaleString('tr-TR')+' — '+String(e.detail||'').replace(/</g,'&lt;')+'</div>').join(''):'<i style="color:#8b98a5">henüz hareket olayı yok</i>';
+  }catch(e){list.innerHTML='<i style="color:#f85149">olay listesi alınamadı (hub erişilemedi)</i>';} 
+}
+$('a5evt-open').onclick=()=>{const ov=a5EvtOverlay();ov.style.display='flex';$('drawer').classList.remove('open');
+  ov.querySelector('#a5evt-x').onclick=()=>ov.style.display='none';
+  ov.querySelector('#a5evt-ref').onclick=a5EvtLoad;
+  ov.querySelector('#a5evt-imgx').onclick=()=>{ov.querySelector('#a5evt-imgwrap').style.display='none';};
+  a5EvtLoad();
+};
+(async()=>{try{const r=await a5api('/night');const j=await r.json().catch(()=>null);if(j&&j.ok){$('a5-night-on').value=j.on;$('a5-night-off').value=j.off;}}catch(_){}})();
+$('a5-night-save').onclick=async function(){
+  const btn=this;btn.disabled=true;
+  try{
+    const on=Math.min(Math.max(parseInt($('a5-night-on').value,10)||0,0),23);
+    const off=Math.min(Math.max(parseInt($('a5-night-off').value,10)||7,0),23);
+    const r=await a5api('/night',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({on:on,off:off})});
+    const j=await r.json().catch(()=>null);
+    if(j&&j.ok){$('a5-st').textContent='🌙 gece modu: '+j.on+':00 – '+j.off+':00 (kamera+güvenlik kapalı)';}
+    else $('a5-st').textContent='✗ gece modu kaydedilemedi';
+  }catch(e){$('a5-st').textContent='✗ A5 erişilemedi';}
+  btn.disabled=false;
+};
 
 /* visibilitychange (orijinal) */
 document.addEventListener('visibilitychange',()=>{
