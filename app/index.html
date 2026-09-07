@@ -1011,8 +1011,12 @@ function handleMsg(m){
       toast('bağlandı: '+S.pcName);vibrate(30);
       if(load('audio',0))setAudio(true);
       break;
-    }
-    case 'pong':S.latency=Math.round(performance.now()-S.pingStart);$('btn-lat').textContent=S.latency+'ms';$('d-lat').textContent=S.latency+'ms';break;
+    }      case 'pong':{S.latency=Math.round(performance.now()-S.pingStart);$('btn-lat').textContent=S.latency+'ms';$('d-lat').textContent=S.latency+'ms';
+        // otomatik kalite: ortalama gecikme >450ms ise çözünürlüğü bir kademe düşür (60 sn bekleme)
+        S.latWin=S.latWin||[];S.latWin.push(S.latency);if(S.latWin.length>5)S.latWin.shift();
+        if(S.screenOn&&S.latWin.length>=5){const avg=S.latWin.reduce((a,b)=>a+b,0)/5;const now=Date.now();
+          if(avg>450&&now-(S.lastAutoQ||0)>60000&&S.res>360){S.res=S.res>=720?540:360;S.lastAutoQ=now;const br=$('btn-res');if(br)br.textContent=S.res+'p';save('res',S.res);send({t:'stream-set',fps:S.fps,q:S.q,res:S.res});toast('📊 gecikme yüksek ('+Math.round(avg)+'ms) → '+S.res+'p')}}
+        break;}
     case 'err':toast(m.msg);break;
     case 'file-ack':if(S.upFile)S.upGot=m.got||S.upGot;setUpPct(m.id,Math.min(99,Math.round(100*S.upGot/Math.max(1,S.upFile?S.upFile.size:1))));break;
     case 'file-done':{
