@@ -378,6 +378,8 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
             <button class="mini" id="a5sc-open">🖥 EKRANI AÇ</button>
             <button class="mini" id="a5cam-open">📷 KAMERA</button>
             <button class="mini" id="a5mic-btn">🎙 MIK 5sn</button>
+            <button class="mini" id="a5live-open">🔴 CANLI</button>
+            <button class="mini" id="a5sec-btn">🚨 GÜVENLİK</button>
           </div>
           <div id="a5-st" style="font-size:9px;color:var(--dim);margin-top:6px">—</div>
         </div>
@@ -2386,6 +2388,49 @@ $('a5mic-btn').onclick=async function(){
     }
     btn.textContent='✗ hata ('+((j&&j.error)||'')+')';setTimeout(()=>{btn.textContent=old;btn.disabled=false;},1800);
   }catch(e){btn.textContent='✗ erişilemedi';setTimeout(()=>{btn.textContent=old;btn.disabled=false;},1800);}
+};
+
+/* ═══════ A5 CANLI KAMERA + GÜVENLİK MODU ═══════ */
+let a5liveT=null;
+function a5LiveOverlay(){
+  let ov=document.getElementById('a5live-ov');
+  if(!ov){
+    ov=document.createElement('div');ov.id='a5live-ov';
+    ov.style.cssText='display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);flex-direction:column;align-items:center;justify-content:center;padding:10px';
+    ov.innerHTML='<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;width:100%"><b style="color:#f85149;font-size:13px">🔴 A5 CANLI</b><span id="a5live-st" style="font-size:10px;color:#8b98a5"></span><button id="a5live-x" style="margin-left:auto;background:#1f2a38;color:#e6edf3;border:0;border-radius:8px;padding:4px 12px;font-size:12px">✕</button></div>'+
+      '<img id="a5live-img" style="max-width:96vw;max-height:70vh;border-radius:10px;background:#000">'+
+      '<div style="display:flex;gap:6px;margin-top:8px"><button id="a5live-back" style="background:#1f2a38;color:#e6edf3;border:0;border-radius:8px;padding:6px 12px;font-size:11px">arka</button><button id="a5live-front" style="background:#1f2a38;color:#e6edf3;border:0;border-radius:8px;padding:6px 12px;font-size:11px">ön</button></div>'+
+      '<div id="a5live-msg" style="font-size:10px;color:#f85149;margin-top:6px;display:none"></div>';
+    document.body.appendChild(ov);
+  }
+  return ov;
+}
+async function a5LiveFrame(){
+  const ov=a5LiveOverlay(),img=ov.querySelector('#a5live-img'),st=ov.querySelector('#a5live-st'),msg=ov.querySelector('#a5live-msg');
+  try{
+    const r=await a5api('/hw/cam-live?t='+Date.now());
+    if(r.status===200){img.src=URL.createObjectURL(await r.blob());st.textContent='canlı · '+new Date().toLocaleTimeString('tr-TR');msg.style.display='none';}
+    else{const j=await r.json().catch(()=>({}));st.textContent='kare yok';if(j.err){msg.textContent='kamera: '+j.err;msg.style.display='flex';}}
+  }catch(e){st.textContent='erişilemedi';}
+}
+$('a5live-open').onclick=async function(){
+  const ov=a5LiveOverlay();ov.style.display='flex';$('drawer').classList.remove('open');
+  ov.querySelector('#a5live-x').onclick=()=>{clearInterval(a5liveT);a5liveT=null;ov.style.display='none';a5api('/hw/cam-live/stop',{method:'POST'}).catch(()=>{});};
+  ov.querySelector('#a5live-back').onclick=()=>a5api('/hw/cam-live/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cam:'back'})}).catch(()=>{});
+  ov.querySelector('#a5live-front').onclick=()=>a5api('/hw/cam-live/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cam:'front'})}).catch(()=>{});
+  try{await a5api('/hw/cam-live/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cam:'back'})});}catch(e){}
+  clearInterval(a5liveT);a5LiveFrame();a5liveT=setInterval(a5LiveFrame,1500);
+};
+$('a5sec-btn').onclick=async function(){
+  const btn=this;btn.disabled=true;const old=btn.textContent;
+  try{
+    const s=await a5api('/hw/sec/status');const j=await s.json().catch(()=>({on:false}));
+    const r=await a5api(j.on?'/hw/sec/off':'/hw/sec/on',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({threshold:8})});
+    const j2=await r.json().catch(()=>({}));
+    btn.textContent=j2&&j2.sec!==false&&!j.on?'🚨 AÇIK':'🚨 GÜVENLİK';
+    if(a5st)$('a5-st').textContent=j.on?'güvenlik kapandı':'güvenlik açık (hareket → foto + olay, 30sn aralıklı)';
+  }catch(e){btn.textContent='✗ erişilemedi';}
+  setTimeout(()=>{btn.textContent=old;btn.disabled=false;},1500);
 };
 
 /* visibilitychange (orijinal) */
