@@ -189,6 +189,7 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
     <div id="topbar">
       <button class="tb-btn" id="btn-screen">▶ EKRAN</button>
       <button class="tb-btn" id="btn-fps" style="display:none">10 fps</button>
+      <button class="tb-btn" id="btn-res" style="display:none">720p</button>
       <button class="tb-btn" id="btn-audio" title="PC sesi">🔊</button>
       <button class="tb-btn" id="btn-night" title="Gece modu (düşük ışık)">🌙</button>
       <div class="pcname" id="pc-name">—</div>
@@ -557,7 +558,7 @@ const aadOf=ctr=>ctrBytes(ctr); // AAD = 8B sayaç (PC ile aynı)
 /* ================= durum ================= */
 const S={
   ws:null,key:null,tx:0,rx:0,authed:false,pcName:'—',
-  screenOn:false,fps:load('fps',10),q:load('q',65),
+  screenOn:false,fps:load('fps',10),q:load('q',65),res:load('res',720),
   spd:load('spd',16)/10,tapMs:150,
   mods:{ctrl:0,alt:0,shift:0,win:0},
   stats:{frames:0,bytes:0,last:0},
@@ -1342,8 +1343,9 @@ function setScreen(on){
   $('btn-screen').classList.toggle('on',on);
   $('btn-fps').style.display=on?'':'none';
   $('btn-fps').textContent=S.fps+'fps';
+  const br=$('btn-res');if(br)br.style.display=on?'':'none';if(br)br.textContent=S.res+'p';
   $('screen-off').style.display=on?'none':'';
-  send({t:'stream',on,fps:S.fps,q:S.q,codec:S.codec});
+  send({t:'stream',on,fps:S.fps,q:S.q,res:S.res,codec:S.codec});
   if(!on){closeVdec();if(S.canvas.width){S.ctx.fillStyle='#000';S.ctx.fillRect(0,0,S.canvas.width,S.canvas.height)}}
 }
 
@@ -1931,7 +1933,7 @@ S.mon=load('mon',-1);
 function cycleMonitor(){
   S.mon=S.mon>=2?-1:S.mon+1; // -1=tümü, 0,1,2 = tek monitör (bilinen üst sınır)
   save('mon',S.mon);
-  send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon,codec:S.codec});
+  send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon,res:S.res,codec:S.codec});
   toast(S.mon<0?'ekran: TÜMÜ':'ekran: monitor '+(S.mon+1));vibrate(12);
 }
 /* monitör şeridi: her ekranın tek seferlik küçük görüntüsü, dokununca geç */
@@ -1946,7 +1948,7 @@ function refreshMonStrip(){
     const id='ms'+mon+'-'+Date.now();
     const cell=document.createElement('div');cell.className='mon-cell';
     cell.innerHTML='<div class="ph">…</div><span>'+(mon<0?'TÜMÜ':'M'+(mon+1))+'</span>';
-    cell.onclick=()=>{S.mon=mon;save('mon',S.mon);send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon,codec:S.codec});toast(mon<0?'ekran: TÜMÜ':'ekran: '+(mon===0?'1.':mon===1?'2.':'3.')+' monitör');vibrate(12)};
+    cell.onclick=()=>{S.mon=mon;save('mon',S.mon);send({t:'stream',on:S.screenOn,fps:S.fps,q:S.q,mon:S.mon,res:S.res,codec:S.codec});toast(mon<0?'ekran: TÜMÜ':'ekran: '+(mon===0?'1.':mon===1?'2.':'3.')+' monitör');vibrate(12)};
     box.appendChild(cell);
     // tek seferlik küçük shot: ajan mon parametresiyle capture başlatır/bitirir
     const t0=Date.now();
@@ -2132,7 +2134,8 @@ $('btn-arch-close').onclick=()=>$('archive-modal').classList.remove('open');
 $('s-vol').value=load('vol',70);$('v-vol').textContent=load('vol',70)+'%';
 $('btn-drawer-close').onclick=()=>$('drawer').classList.remove('open');
 $('btn-screen').onclick=()=>{setScreen(!S.screenOn);vibrate(10)};
-$('btn-fps').onclick=()=>{S.fps=S.fps>=30?2:S.fps+5;$('s-fps').value=S.fps;$('v-fps').textContent=S.fps;save('fps',S.fps);if(S.screenOn)send({t:'stream-set',fps:S.fps,q:S.q})};
+$('btn-fps').onclick=()=>{S.fps=S.fps>=30?2:S.fps+5;$('s-fps').value=S.fps;$('v-fps').textContent=S.fps;save('fps',S.fps);if(S.screenOn)send({t:'stream-set',fps:S.fps,q:S.q,res:S.res})};
+{const br=$('btn-res');if(br)br.onclick=()=>{S.res=S.res>=720?360:(S.res>=540?720:540);br.textContent=S.res+'p';save('res',S.res);if(S.screenOn)send({t:'stream-set',fps:S.fps,q:S.q,res:S.res});toast('çözünürlük: '+S.res+'p');vibrate(12)}}
 /* GECE MODU: ekranı kısıp göz yormayan sıcak renk (sadece görsel — akışa dokunmaz) */
 $('btn-night').onclick=()=>{
   S.night=!S.night;save('night',S.night?'1':'');
@@ -2152,15 +2155,15 @@ $('btn-night').onclick=()=>{
     if(want&&(S.fps>want.fps||S.q>want.q)){
       S.fps=want.fps;S.q=want.q;save('fps',S.fps);save('q',S.q);
       $('s-fps').value=S.fps;$('v-fps').textContent=S.fps;
-      if(S.screenOn)send({t:'stream-set',fps:S.fps,q:S.q});
+      if(S.screenOn)send({t:'stream-set',fps:S.fps,q:S.q,res:S.res});
       toast('📉 yavaş ağ: akış otomatik kısıldı ('+S.fps+'fps)');
     }
   };
   c.addEventListener('change',apply);apply();
 })();
-$('s-fps').oninput=e=>{S.fps=+e.target.value;$('v-fps').textContent=S.fps;save('fps',S.fps);if(S.screenOn){clearTimeout(S.fpsT);S.fpsT=setTimeout(()=>send({t:'stream-set',fps:S.fps,q:S.q}),250)}};
+$('s-fps').oninput=e=>{S.fps=+e.target.value;$('v-fps').textContent=S.fps;save('fps',S.fps);if(S.screenOn){clearTimeout(S.fpsT);S.fpsT=setTimeout(()=>send({t:'stream-set',fps:S.fps,q:S.q,res:S.res}),250)}};
 $('s-fps').onchange=()=>{if(S.screenOn)setScreen(true)};
-$('s-q').oninput=e=>{S.q=+e.target.value;$('v-q').textContent=(S.q/100).toFixed(2)+'x';save('q',S.q);if(S.screenOn){clearTimeout(S.qT);S.qT=setTimeout(()=>send({t:'stream-set',fps:S.fps,q:S.q}),250)}};
+$('s-q').oninput=e=>{S.q=+e.target.value;$('v-q').textContent=(S.q/100).toFixed(2)+'x';save('q',S.q);if(S.screenOn){clearTimeout(S.qT);S.qT=setTimeout(()=>send({t:'stream-set',fps:S.fps,q:S.q,res:S.res}),250)}};
 $('s-q').onchange=()=>{if(S.screenOn)setScreen(true)};
 $('s-spd').oninput=e=>{S.spd=+e.target.value/10;$('v-spd').textContent=S.spd+'x';save('spd',+e.target.value)};
 $('btn-forget').onclick=async()=>{
