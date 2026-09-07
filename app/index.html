@@ -2242,7 +2242,8 @@ async function autoRepairAddr(){
 let a5scT=null;
 function a5get(k){try{return localStorage.getItem(k)}catch(_){return null}}
 function a5set(k,v){try{localStorage.setItem(k,v)}catch(_){}}
-function a5host(){return (a5get('a5_host')||'').trim().replace(/^https?:\/\//,'')}
+function a5hostRaw(){return (a5get('a5_host')||'').trim().replace(/^https?:\/\//,'')}
+function a5host(){return a5hostRaw().replace(/:8443$/,'')}
 function a5tk(){return a5get('a5_token')||''}
 async function a5api(path,opts,screen){
   opts=opts||{};
@@ -2251,6 +2252,16 @@ async function a5api(path,opts,screen){
     try{
       const r=await fetch('http://'+a5host()+path,mk(a5tk()));
       if(r.status!==502)return r;
+    }catch(_){}
+    /* LAN direkt erisim basarisizsa: ayni agdaki PC ajaninin A5 koprüsünü dene */
+    try{
+      const a2=load('addr',''),t2=load('token','');
+      if(a2&&!/trycloudflare/i.test(a2)){
+        const b2='http://'+a2.replace(/^https?:\/\//,'');
+        const pr2=screen?'/a5s':'/a5';
+        const r2=await fetch(b2+pr2+path,Object.assign({},opts,{headers:Object.assign({'Authorization':'Bearer '+t2},opts.headers||{}),cache:'no-store',signal:AbortSignal.timeout(8000)}));
+        if(r2.status!==502)return r2;
+      }
     }catch(_){}
   }
   const a=load('addr',''),t=load('token','');
