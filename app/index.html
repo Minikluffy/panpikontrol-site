@@ -1136,6 +1136,18 @@ function handleMsg(m){
       if(t)t.textContent=S.noAccel?'✓ AÇIK':'KAPALI';
       const b=$('acc-badge');
       if(b)b.style.display=S.accelOn?'':'none';
+      /* PC ajanı hub ayarını biliyorsa A5 panelini otomatik doldur (tek eşleştirme yeter) */
+      if(m.hub&&!a5get('a5_host')){
+        a5set('a5_host',m.hub);
+        const hi=$('a5-host-in');if(hi)hi.value=m.hub;
+        $('a5-st').textContent='A5 adresi PC ajanından alındı: '+m.hub+(a5tk()?' (token var)':' — token gir');
+        $('a5-badge').style.display='inline';
+      }
+      if(m.hubToken&&!a5tk()){
+        a5set('a5_token',m.hubToken);
+        const ti=$('a5-token-in');if(ti)ti.value=m.hubToken;
+        $('a5-st').textContent='✓ A5 paneli PC ajanından otomatik yapılandırıldı ('+m.hub+')';
+      }
       break;
     }
     case 'battery-saver':setBatteryBadge(m.on,m.pct);break;
