@@ -2427,11 +2427,29 @@ $('a5sec-btn').onclick=async function(){
     const s=await a5api('/hw/sec/status');const j=await s.json().catch(()=>({on:false}));
     const r=await a5api(j.on?'/hw/sec/off':'/hw/sec/on',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({threshold:8})});
     const j2=await r.json().catch(()=>({}));
-    btn.textContent=j2&&j2.sec!==false&&!j.on?'🚨 AÇIK':'🚨 GÜVENLİK';
-    if(a5st)$('a5-st').textContent=j.on?'güvenlik kapandı':'güvenlik açık (hareket → foto + olay, 30sn aralıklı)';
+    if(j.on){
+      btn.textContent='🚨 GÜVENLİK';
+      if(a5liveSecT){clearInterval(a5liveSecT);a5liveSecT=null;}
+      if(a5st)$('a5-st').textContent='güvenlik kapandı';
+    }else{
+      btn.textContent='🚨 AÇIK';
+      if(a5st)$('a5-st').textContent='güvenlik açık (hareket → foto + olay, 30sn aralıklı)';
+      let lastHits=0;
+      if(a5liveSecT)clearInterval(a5liveSecT);
+      a5liveSecT=setInterval(async()=>{
+        try{
+          const sr=await a5api('/hw/sec/status');const sj=await sr.json().catch(()=>null);
+          if(sj&&sj.on){
+            if(sj.hits>lastHits){toast('🚨 A5 hareket: '+sj.hits+'. olay — foto kaydedildi');}
+            lastHits=sj.hits;
+          }else{clearInterval(a5liveSecT);a5liveSecT=null;btn.textContent='🚨 GÜVENLİK';}
+        }catch(_){}
+      },20000);
+    }
   }catch(e){btn.textContent='✗ erişilemedi';}
-  setTimeout(()=>{btn.textContent=old;btn.disabled=false;},1500);
+  setTimeout(()=>{btn.disabled=false;},1200);
 };
+let a5liveSecT=null;
 
 /* visibilitychange (orijinal) */
 document.addEventListener('visibilitychange',()=>{
