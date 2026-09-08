@@ -172,6 +172,20 @@
           <a class="btn green sm" href="#/ai">AÇ</a>
         </div>
 
+        <div class="sec">🔐 GÜVENLİK</div>
+        <div class="card">
+          <div class="ic">🔐</div>
+          <div class="t"><b>Şifreli Kasa</b><span>şifreler/bilgiler AES-256-GCM ile şifreli saklanır · kasa şifresi site şifresinden bağımsız · yedek al/yükle</span></div>
+          <a class="btn blue sm" href="#/kasa">AÇ</a>
+        </div>
+
+        <div class="sec">📊 İSTATİSTİK</div>
+        <div class="card">
+          <div class="ic">📊</div>
+          <div class="t"><b>Bu cihazın özeti</b><span id="stat-line">yükleniyor…</span></div>
+          <button class="btn sm" id="stat-refresh">↻</button>
+        </div>
+
         <div class="sec">🛡️ SİSTEM</div>
         <div class="card">
           <div class="ic">🩺</div>
@@ -277,6 +291,35 @@
 
           <div class="sec" style="margin-top:14px">📜 OLAYLAR (son 30)</div>
           <div id="a5-events"></div>
+        </div>
+      </section>
+
+      <!-- ═══ ŞİFRELİ KASA ═══ -->
+      <section id="pg-kasa" class="pg hidden">
+        <div class="kv-row"><div class="sec" style="margin:8px 0">🔐 ŞİFRELİ KASA</div><a class="btn sm" href="#/">← GERİ</a></div>
+        <div id="kasa-lock-view">
+          <div class="kv" style="margin-bottom:10px">kasa şifresi site şifresinden <b>bağımsız</b> · kaybedersen içerik kurtarılamaz — bu iyi bir şey.</div>
+          <input class="txt" id="kasa-pw" type="password" placeholder="KASA ŞİFRESİ" autocomplete="off">
+          <div class="row"><button class="btn green" id="kasa-unlock">KİLİDİ AÇ / OLUŞTUR</button></div>
+          <div id="kasa-err" style="color:var(--warn);font-size:11px;min-height:14px"></div>
+          <div class="kv">AES-256-GCM · PBKDF2-SHA256 200.000 tur · anahtar sadece bellekte · localStorage'da yalnızca şifreli metin durur</div>
+        </div>
+        <div id="kasa-main" class="hidden">
+          <div class="kv-row">
+            <div class="kv" style="flex:1"><b id="kasa-count">0</b> kayıt şifreli saklanıyor</div>
+            <button class="btn sm" id="kasa-lockbtn">🔒 KİLİTLE</button>
+            <button class="btn danger sm" id="kasa-wipe">TÜMÜNÜ SİL</button>
+          </div>
+          <input class="txt" id="kasa-name" placeholder="başlık (örn: wifi şifresi)">
+          <textarea id="kasa-txt" placeholder="gizli içerik…" style="min-height:80px"></textarea>
+          <div class="row"><button class="btn green" id="kasa-save">ŞİFRELE VE SAKLA</button></div>
+          <div class="row">
+            <button class="btn sm" id="kasa-export">⬇ YEDEK AL (.json)</button>
+            <button class="btn sm" id="kasa-import">⬆ YEDEK YÜKLE</button>
+            <input type="file" id="kasa-file" accept=".json,application/json" style="display:none">
+          </div>
+          <div class="kv" id="kasa-xmsg" style="min-height:14px">yedek: tüm kayıtlar tek .json dosyasında, kasa şifrenle şifreli — başka cihazda aynı kasa şifresiyle yüklersin</div>
+          <div id="kasa-list"></div>
         </div>
       </section>
 
@@ -391,7 +434,7 @@ function tick(){const d=new Date();$('clock').textContent=d.toLocaleDateString('
 setInterval(tick,30000);tick();
 
 /* ═══════════ ROUTER + ALT GEZGİN ═══════════ */
-const PAGES={'#/':'pg-ana','#/notlar':'pg-notlar','#/ai':'pg-ai','#/a5':'pg-a5','#/mesaj':'pg-msg','#/durum':'pg-durum'};
+const PAGES={'#/':'pg-ana','#/notlar':'pg-notlar','#/ai':'pg-ai','#/kasa':'pg-kasa','#/a5':'pg-a5','#/mesaj':'pg-msg','#/durum':'pg-durum'};
 function route(){
   if(sessionStorage.getItem('pk_gate')!=='1')return;
   const h=location.hash||'#/';
@@ -406,6 +449,7 @@ function route(){
   if(h==='#/ai'&&cloudOn()){clState('çekiliyor…');clPull(true)}
   if(h==='#/a5')a5Init();
   if(h==='#/mesaj')msgInit();
+  if(h==='#/kasa'&&!K_KEY){/* kasa kapalı — kilit görünümü hazır */}
   if(h!=='#/a5')a5scStop();
 }
 window.addEventListener('hashchange',route);
@@ -787,6 +831,138 @@ async function durumCheck(){
 $('st2-refresh').onclick=durumCheck;
 
 $('cpy').onclick=async()=>{try{await navigator.clipboard.writeText(location.origin+location.pathname);$('cpy').textContent='✓ KOPYALANDI';setTimeout(()=>$('cpy').textContent='ADRESİ KOPYALA',1500)}catch(_){$('cpy').textContent=location.hostname;setTimeout(()=>$('cpy').textContent='ADRESİ KOPYALA',2500)}};
+
+/* ═══════════ İSTATİSTİK ═══════════ */
+function renderStats(){
+  const el=$('stat-line');
+  try{
+    const notes=JSON.parse(read('emin_notes')||'[]').length;
+    const tasks=JSON.parse(read('emin_tasks')||'[]');
+    const done=tasks.filter(t=>t.s==='bitti').length;
+    let kasa=0;try{kasa=JSON.parse(read('emin_kasa')||'[]').length}catch(_){}
+    const msgs=JSON.parse(read('pk_msg_out')||'[]').length;
+    el.textContent=notes+' not · '+tasks.length+' görev ('+done+' bitti) · '+kasa+' kasa kaydı · '+msgs+' mesaj';
+  }catch(_){el.textContent='—'}
+}
+$('stat-refresh').onclick=renderStats;
+route();renderStats();
+
+/* ═══════════ ŞİFRELİ KASA · PBKDF2 (200k) → AES-256-GCM ═══════════
+   Kasa şifresi asla saklanmaz; ondan türetilen anahtar sadece bellekte (K_KEY).
+   localStorage'a yalnızca: doğrulayıcı (emin_kasa_v) + şifreli kayıtlar (emin_kasa).
+   var bilinçli: route() script ortasında çağrılabildiğinden TDZ'e takılmasın. */
+var K_KEY=null,K_OPEN=[];
+const K_ITERS=200000;
+const K_SALT_STR='PanpiKontrol-Emin-kasa-salt-2026!';
+const kb64=u8=>{let s='';for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)};
+const kunb64=s=>new Uint8Array([...atob(s)].map(c=>c.charCodeAt(0)));
+async function kDerive(pw){
+  const base=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:new Uint8Array([...K_SALT_STR].map(c=>c.charCodeAt(0))),iterations:K_ITERS,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function kEnc(key,txt){const iv=crypto.getRandomValues(new Uint8Array(12));const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(txt)));return{iv:kb64(iv),ct:kb64(ct)}}
+async function kDec(key,rec){const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:kunb64(rec.iv)},key,kunb64(rec.ct));return new TextDecoder().decode(pt)}
+function kasaData(){try{return JSON.parse(read('emin_kasa')||'[]')}catch(_){return[]}}
+function kasaSaveData(a){store('emin_kasa',JSON.stringify(a))}
+function vaultLock(){
+  K_KEY=null;K_OPEN=[];
+  const m=$('kasa-main');if(!m)return;
+  m.classList.add('hidden');$('kasa-lock-view').classList.remove('hidden');
+  $('kasa-pw').value='';$('kasa-err').textContent='';$('kasa-txt').value='';$('kasa-name').value='';
+}
+async function kasaUnlock(){
+  const pw=$('kasa-pw').value;
+  if(!pw){$('kasa-err').textContent='kasa şifresi gir';return}
+  $('kasa-err').textContent='anahtar türetiliyor…';
+  try{
+    const key=await kDerive(pw);
+    const v=read('emin_kasa_v');
+    if(!v){ // ilk kurulum: doğrulayıcı yaz — sonraki girişlerde yanlış şifre net reddedilir
+      const ver=await kEnc(key,'kasa-acik');store('emin_kasa_v',JSON.stringify(ver));
+      if(read('emin_kasa')===null)kasaSaveData([]);
+    }else{
+      try{await kDec(key,JSON.parse(v))}catch(_){$('kasa-err').textContent='✗ kasa şifresi yanlış';return}
+    }
+    K_KEY=key;$('kasa-err').textContent='';
+    await kasaOpen();
+    $('kasa-lock-view').classList.add('hidden');$('kasa-main').classList.remove('hidden');$('kasa-pw').value='';
+  }catch(e){$('kasa-err').textContent='hata: '+(e.message||e)}
+}
+async function kasaOpen(){
+  K_OPEN=[];
+  for(const r of kasaData()){
+    try{
+      const o=JSON.parse(await kDec(K_KEY,r));
+      K_OPEN.push({id:r.id,ts:r.ts,n:o.n||'',t:o.t!=null?o.t:String(o)});
+    }catch(_){K_OPEN.push({id:r.id,ts:r.ts,n:'?',t:'⚠ çözülemedi (bozuk kayıt)'})}
+  }
+  renderKasa();
+}
+function renderKasa(){
+  $('kasa-count').textContent=K_OPEN.length;
+  const el=$('kasa-list');
+  if(!K_OPEN.length){el.innerHTML='<div class="kv">kasa boş — ilk sırrını ekle.</div>';return}
+  el.innerHTML=K_OPEN.map(x=>'<div class="note"><div class="nt"><span>'+esc(x.n||'(başlıksız)')+' · '+new Date(x.ts).toLocaleString('tr-TR')+'</span><span><span style="cursor:pointer;color:var(--acc2)" data-kc="'+x.id+'">kopyala</span> · <span style="cursor:pointer;color:var(--warn)" data-kd="'+x.id+'">sil</span></span></div><div class="nb">'+esc(x.t)+'</div></div>').join('');
+  el.querySelectorAll('[data-kd]').forEach(b=>b.onclick=()=>{kasaSaveData(kasaData().filter(r=>r.id!==b.dataset.kd));kasaOpen()});
+  el.querySelectorAll('[data-kc]').forEach(b=>b.onclick=async()=>{const it=K_OPEN.find(x=>x.id===b.dataset.kc);try{await navigator.clipboard.writeText(it.t);b.textContent='✓ kopyalandı';setTimeout(()=>b.textContent='kopyala',1200)}catch(_){}});
+}
+$('kasa-unlock').onclick=kasaUnlock;
+$('kasa-pw').addEventListener('keydown',e=>{if(e.key==='Enter')kasaUnlock()});
+$('kasa-lockbtn').onclick=vaultLock;
+$('kasa-wipe').onclick=()=>{if(!confirm('kasadaki HER ŞEY kalıcı silinsin mi? geri alınamaz.'))return;localStorage.removeItem('emin_kasa');localStorage.removeItem('emin_kasa_v');vaultLock();route()};
+$('kasa-save').onclick=async()=>{
+  const t=$('kasa-txt').value;
+  if(!t){return}
+  const payload=JSON.stringify({n:$('kasa-name').value.trim(),t:t});
+  const rec=await kEnc(K_KEY,payload);
+  rec.id=Math.random().toString(36).slice(2,10);rec.ts=Date.now();
+  const a=kasaData();a.unshift(rec);kasaSaveData(a);
+  $('kasa-txt').value='';$('kasa-name').value='';
+  await kasaOpen();
+};
+
+/* ═══ YEDEK AL / YÜKLE ═══
+   Dışa aktarım: kasa verisinin HAM şifreli halini (iv+ct kayıtları) paketler.
+   Dosya şifresiz metin İÇERMEZ — içerik zaten kasa şifresiyle AES-GCM'li.
+   İçe aktarım: dosyadaki kayıtlar aynı kasa şifresiyle çözülerek doğrulanır,
+   bozuk/sahte dosya reddedilir; mevcut kayıtlarla birleştirilir (id ile tekilleştir). */
+function kasaXmsg(t,ok){const el=$('kasa-xmsg');el.textContent=t;el.style.color=ok?'var(--acc)':'var(--warn)';setTimeout(()=>{el.style.color='';el.textContent='yedek: tüm kayıtlar tek .json dosyasında, kasa şifrenle şifreli — başka cihazda aynı kasa şifresiyle yüklersin'},4000)}
+$('kasa-export').onclick=()=>{
+  const a=kasaData();
+  if(!a.length){kasaXmsg('kasa boş — yedeklenecek kayıt yok');return}
+  const pack={app:'emerkez-kasa',v:1,exported:new Date().toISOString(),count:a.length,records:a};
+  const u=URL.createObjectURL(new Blob([JSON.stringify(pack,null,1)],{type:'application/json'}));
+  const link=document.createElement('a');
+  const d=new Date(),pad=x=>String(x).padStart(2,'0');
+  link.download='kasa-yedek-'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'.json';
+  link.href=u;link.click();
+  setTimeout(()=>URL.revokeObjectURL(u),3000);
+  kasaXmsg('✓ yedek indirildi ('+a.length+' kayıt, şifreli) — dosyayı güvenli yerde sakla',true);
+};
+$('kasa-import').onclick=()=>$('kasa-file').click();
+$('kasa-file').addEventListener('change',async ev=>{
+  const f=ev.target.files&&ev.target.files[0];
+  if(!f)return;
+  ev.target.value='';
+  if(!K_KEY){kasaXmsg('önce kasayı aç');return}
+  let pack;
+  try{pack=JSON.parse(await f.text())}catch(_){kasaXmsg('✗ dosya okunamadı — .json yedek mi?');return}
+  if(!pack||pack.app!=='emerkez-kasa'||!Array.isArray(pack.records)){kasaXmsg('✗ geçersiz yedek dosyası');return}
+  // her kaydı ÇÖZEREK doğrula (yanlış kasa şifresiyle şifrelenmiş/sahte dosya giremez)
+  const cur=kasaData();const ids=new Set(cur.map(r=>r.id));
+  let added=0,bad=0;
+  for(const r of pack.records){
+    try{
+      await kDec(K_KEY,r); // çözülmezse dosya bu kasaya ait değil
+      if(!ids.has(r.id)){cur.push(r);ids.add(r.id);added++}
+    }catch(_){bad++}
+  }
+  if(!added&&!bad){kasaXmsg('yedekteki kayıtlar zaten mevcut',true);return}
+  if(bad&&!added){kasaXmsg('✗ hiçbir kayıt çözülemedi — bu yedek BAŞKA kasa şifresiyle alınmış');return}
+  kasaSaveData(cur);
+  await kasaOpen();
+  kasaXmsg('✓ '+added+' kayıt eklendi'+(bad?' · '+bad+' bozuk/atlanan':'')+' — toplam '+cur.length,true);
+});
 </script>
 </body>
 </html>
