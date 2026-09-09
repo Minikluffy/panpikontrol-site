@@ -617,25 +617,23 @@ async function pairAttempt(addr,code){
 async function pairAndConnect(){
   let addr=$('in-addr').value.trim().replace(/^https?:\/\//,'');
   const code=$('in-code').value.trim().toUpperCase();
-  if(!addr||!code){setStatus('adres ve kod gerekli',1);return}
-  save('addr',addr);
-  setStatus('eşleştiriliyor…');
-  let out=await pairAttempt(addr,code);
-  if(!out){ // ulaşılamadı → keşif: A5 hub → GitHub relay.json → otomatik yeniden dene
-    setStatus('adrese ulaşılamadı — keşif deneniyor…');
-    const found=await discoverAddr();
-    if(!found){setStatus('bilgisayara ulaşılamadı (keşif de boş) — PC açık mı / internet var mı?',1);return}
-    if(found!==addr){
-      setStatus('📡 yeni adres bulundu — eşleştiriliyor…');
-      addr=found;save('addr',found);$('in-addr').value=found;
-      out=await pairAttempt(addr,code);
-      if(!out){setStatus('yeni adrese de ulaşılamadı',1);return}
-    }else{
-      out=await pairAttempt(addr,code);
-      if(!out){setStatus('adres doğru ama PC cevap vermiyor — ajan çalışıyor mu?',1);return}
-    }
+  if(!code){setStatus('eşleştirme kodunu gir',1);return}
+  // Adaylar: elle girilen adres (varsa) + keşif adresleri (LAN önce, tünel sonra)
+  const candidates=[];
+  if(addr)candidates.push(addr);
+  setStatus('adres aranıyor…');
+  const disc=await discoverAddrs();
+  for(const a of disc)if(!candidates.some(x=>x.toLowerCase()===a.toLowerCase()))candidates.push(a);
+  if(!candidates.length){setStatus('bilgisayar bulunamadı — PC açık mı / aynı ağda mısın? Adresi elle yaz',1);return}
+  let out=null,okAddr=null;
+  for(const cand of candidates){
+    setStatus('eşleştiriliyor… ('+cand+')');
+    out=await pairAttempt(cand,code);
+    if(out){okAddr=cand;break}
   }
+  if(!out){setStatus('hiçbir adrese ulaşılamadı — internet/ağ bağlantını kontrol et (keşif: '+(disc.join(', ')||'boş')+')',1);return}
   if(out.err){setStatus(out.err,1);return}
+  addr=okAddr;save('addr',addr);$('in-addr').value=addr;
   save('token',out.token);save('devname',out.name);
   setStatus('eşleştirildi ✓ bağlanıyor…');
   connectWS();
@@ -2314,32 +2312,46 @@ const DISCOVER_URL='https://minikluffy.github.io/panpikontrol-site/data/relay.js
 /* keşif zinciri: 1) A5 hub (ev ağındaysa en hızlı+taze) 2) GitHub relay.json 3) null */
 async function discoverFromHub(){
   const hub=(load('a5_host','')||'').trim(),tk=load('a5_token','');
-  if(!hub||!tk)return null;
+  if(!hub||!tk)return [];
   try{
     const c=new AbortController(),t=setTimeout(()=>c.abort(),2500);
     const r=await fetch('http://'+hub+'/discover',{headers:{'Authorization':'Bearer '+tk},signal:c.signal,cache:'no-store'});
     clearTimeout(t);
-    if(!r.ok)return null;
+    if(!r.ok)return [];
     const j=await r.json();
     // en taze PC kaydını al (12 saatten bayatlar hub'ta zaten gizli)
     let best=null;
     for(const p of Object.values(j.pcs||{}))if(!best||p.ts>best.ts)best=p;
-    if(!best)return null;
-    return best.relay?best.relay.replace(/^https?:\/\//,''):(best.lan||null);
-  }catch(_){return null}
+    if(!best)return [];
+    const out=[];
+    if(best.lan)out.push(String(best.lan).replace(/^https?:\/\//,''));
+    if(best.relay)out.push(String(best.relay).replace(/^https?:\/\//,''));
+    return out;
+  }catch(_){return []}
 }
 async function discoverFromGitHub(){
   try{
     const r=await fetch(DISCOVER_URL+'?t='+Date.now(),{cache:'no-store'});
-    if(!r.ok)return null;
+    if(!r.ok)return [];
     const j=await r.json();
-    if(j&&j.relay&&/\.trycloudflare\.com/i.test(j.relay))return j.relay.replace(/^https?:\/\//,'');
-    if(j&&j.lan)return j.lan;
-    return null;
-  }catch(_){return null}
+    const out=[];
+    // ÖNCE LAN (evdeyken VPN/tünel ölü olsa bile çalışır), sonra relay
+    if(j&&j.lan)out.push(String(j.lan).replace(/^https?:\/\//,''));
+    if(j&&j.relay&&/\.trycloudflare\.com/i.test(j.relay))out.push(String(j.relay).replace(/^https?:\/\//,''));
+    return out;
+  }catch(_){return []}
 }
 async function discoverAddr(){
-  return await discoverFromHub()||await discoverFromGitHub();
+  // tüm adaylar: LAN önce (evdeyken VPN/tünel ölü olsa bile çalışır), relay sonra
+  const seen=new Set();
+  const all=[...(await discoverFromHub()),...(await discoverFromGitHub())];
+  const uniq=all.filter(a=>{const k=a.toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
+  return uniq[0]||null;
+}
+async function discoverAddrs(){
+  const seen=new Set();
+  const all=[...(await discoverFromHub()),...(await discoverFromGitHub())];
+  return all.filter(a=>{const k=a.toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
 }
 async function autoRepairAddr(){
   const saved=addrOf();if(!saved)return; // hiç adres yoksa kullanıcı QR/elle girer
