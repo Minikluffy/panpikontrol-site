@@ -602,22 +602,43 @@ function setStatus(msg,isErr){const el=$('conn-status');el.textContent=msg;el.cl
 
 function tlsForced(){return load('forceTLS','')==='1'}
 
+async function pairAttempt(addr,code){
+  const base=location.protocol==='https:'||tlsForced()||/\.trycloudflare\.com/i.test(addr)?`https://${addr}`:`http://${addr}`;
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),10000); // 10 sn: karanlık delik yok
+  try{
+    const r=await fetch(`${base}/pair`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code,name:'Telefon'}),signal:c.signal});
+    clearTimeout(t);
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)return {err:j.error||('eşleştirme başarısız ('+r.status+')')};
+    return {token:j.token,name:j.name};
+  }catch(e){clearTimeout(t);return null} // ağ hatası: null → arayana keşif sinyali
+}
 async function pairAndConnect(){
-  const addr=$('in-addr').value.trim().replace(/^https?:\/\//,'');
+  let addr=$('in-addr').value.trim().replace(/^https?:\/\//,'');
   const code=$('in-code').value.trim().toUpperCase();
   if(!addr||!code){setStatus('adres ve kod gerekli',1);return}
   save('addr',addr);
   setStatus('eşleştiriliyor…');
-  try{
-    const base=location.protocol==='https:'||tlsForced()||/\.trycloudflare\.com/i.test(addr)?`https://${addr}`:`http://${addr}`;
-    const r=await fetch(`${base}/pair`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({code,name:'Telefon'})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok){setStatus(j.error||('eşleştirme başarısız ('+r.status+')'),1);return}
-    save('token',j.token);save('devname',j.name);
-    setStatus('eşleştirildi ✓ bağlanıyor…');
-    connectWS();
-  }catch(e){setStatus('bilgisayara ulaşılamadı: '+e.message,1)}
+  let out=await pairAttempt(addr,code);
+  if(!out){ // ulaşılamadı → keşif: A5 hub → GitHub relay.json → otomatik yeniden dene
+    setStatus('adrese ulaşılamadı — keşif deneniyor…');
+    const found=await discoverAddr();
+    if(!found){setStatus('bilgisayara ulaşılamadı (keşif de boş) — PC açık mı / internet var mı?',1);return}
+    if(found!==addr){
+      setStatus('📡 yeni adres bulundu — eşleştiriliyor…');
+      addr=found;save('addr',found);$('in-addr').value=found;
+      out=await pairAttempt(addr,code);
+      if(!out){setStatus('yeni adrese de ulaşılamadı',1);return}
+    }else{
+      out=await pairAttempt(addr,code);
+      if(!out){setStatus('adres doğru ama PC cevap vermiyor — ajan çalışıyor mu?',1);return}
+    }
+  }
+  if(out.err){setStatus(out.err,1);return}
+  save('token',out.token);save('devname',out.name);
+  setStatus('eşleştirildi ✓ bağlanıyor…');
+  connectWS();
 }
 
 function connectWS(){
