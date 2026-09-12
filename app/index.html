@@ -21,7 +21,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
 .screen.on{display:flex}
 
 /* ---------- connect ---------- */
-#scr-connect{align-items:center;justify-content:center;padding:16px;gap:10px;text-align:center}
+/* TAŞMA DÜZELTMESİ: uzun içerik (kısa yatay ekran / açık klavye) KIRPILMAZ,
+   kaydırılabilir + margin:auto ile ortalanır. Yoksa alttaki durum satırı görünmez
+   oluyordu → "butona bastım hiçbir şey olmuyor" şikayeti. */
+#scr-connect{padding:14px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.cwrap{margin:auto;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;width:100%}
 .logo{font-size:22px;font-weight:700;letter-spacing:2px;color:var(--acc);margin-bottom:2px}
 .sub{color:var(--dim);font-size:11px;margin-bottom:14px}
 .field{width:100%;max-width:360px;text-align:left}
@@ -35,6 +39,17 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
 .btn.ghost{background:var(--panel);color:var(--txt);border:1px solid var(--line)}
 #conn-status{font-size:11px;color:var(--dim);min-height:16px;margin-top:10px;white-space:pre-line}
 #conn-status.err{color:var(--warn)}
+/* kısa ekran (telefon yatay): her şey tek bakışta sığsın */
+@media (max-height:470px){
+  #scr-connect{padding:8px}
+  .cwrap{gap:6px}
+  .logo{font-size:17px;letter-spacing:1px;margin-bottom:0}
+  .sub{display:none}
+  .field label{margin:4px 0 3px}
+  .field input{padding:8px;font-size:14px}
+  .btn{padding:9px;margin-top:6px;font-size:13px}
+  #conn-status{margin-top:6px;font-size:10px}
+}
 
 /* ---------- main (yatay kontrol) ---------- */
 #scr-main{background:var(--bg)}
@@ -174,6 +189,7 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
 
   <!-- bağlanma ekranı -->
   <div id="scr-connect" class="screen on">
+   <div class="cwrap">
     <div class="logo">▚▞ PANPIKONTROL</div>
     <div class="sub">telefon → bilgisayar uzaktan kontrol</div>
     <div class="field"><label>BİLGİSAYAR ADRESİ (ör: 192.168.1.5:4848)</label>
@@ -184,6 +200,7 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
     <button class="btn ghost" id="btn-scan">📷 KOD TARA (QR)</button>
     <button class="btn ghost" id="btn-connect" style="display:none">YENİDEN BAĞLAN</button>
     <div id="conn-status"></div>
+   </div>
   </div>
 
   <!-- ana kontrol ekranı -->
@@ -602,9 +619,9 @@ function setStatus(msg,isErr){const el=$('conn-status');el.textContent=msg;el.cl
 
 function tlsForced(){return load('forceTLS','')==='1'}
 
-async function pairAttempt(addr,code){
+async function pairAttempt(addr,code,toMs){
   const base=location.protocol==='https:'||tlsForced()||/\.trycloudflare\.com/i.test(addr)?`https://${addr}`:`http://${addr}`;
-  const c=new AbortController(),t=setTimeout(()=>c.abort(),10000); // 10 sn: karanlık delik yok
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),toMs||10000); // karanlık delik yok
   try{
     const r=await fetch(`${base}/pair`,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({code,name:'Telefon'}),signal:c.signal});
@@ -614,29 +631,67 @@ async function pairAttempt(addr,code){
     return {token:j.token,name:j.name};
   }catch(e){clearTimeout(t);return null} // ağ hatası: null → arayana keşif sinyali
 }
+function pairBtnLabel(){return tokenOf()?'YENİDEN EŞLEŞTİR (cihaz değiştir)':'CİHAZ EŞLEŞTİR'}
+/* buton her zaman GÖRÜNÜR tepki verir (kullanıcı "tepki yok" demesin) */
+function pairBusy(on){
+  const b=$('btn-pair');if(!b)return;
+  b.disabled=!!on;b.style.opacity=on?'.65':'';
+  b.textContent=on?'⏳ EŞLEŞTİRİLİYOR…':pairBtnLabel();
+}
+/* durum satırı her adımı yazar + görünür alana kaydırır (kısa ekranda kırpılmasın) */
+function pairShow(lines,isErr){
+  const el=$('conn-status');if(!el)return;
+  el.textContent=lines.join('\n');
+  el.classList.toggle('err',!!isErr);
+  try{el.scrollIntoView({block:'nearest'})}catch(_){}
+}
+/* https sayfadan özel IP'ye https isteği tarayıcıda (self-signed) engellenir */
+function isPrivateAddr(a){return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|localhost)/i.test(String(a).replace(/^https?:\/\//,'').replace(/:\d+$/,''))}
 async function pairAndConnect(){
   let addr=$('in-addr').value.trim().replace(/^https?:\/\//,'');
   const code=$('in-code').value.trim().toUpperCase();
-  if(!code){setStatus('eşleştirme kodunu gir',1);return}
-  // Adaylar: elle girilen adres (varsa) + keşif adresleri (LAN önce, tünel sonra)
-  const candidates=[];
-  if(addr)candidates.push(addr);
-  setStatus('adres aranıyor…');
-  const disc=await discoverAddrs();
-  for(const a of disc)if(!candidates.some(x=>x.toLowerCase()===a.toLowerCase()))candidates.push(a);
-  if(!candidates.length){setStatus('bilgisayar bulunamadı — PC açık mı / aynı ağda mısın? Adresi elle yaz',1);return}
-  let out=null,okAddr=null;
-  for(const cand of candidates){
-    setStatus('eşleştiriliyor… ('+cand+')');
-    out=await pairAttempt(cand,code);
-    if(out){okAddr=cand;break}
+  try{if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()}catch(_){} // klavye kapanınca durum satırı görünür
+  if(S.pairing)return;
+  if(!code){pairShow(['⚠ önce 6 haneli eşleştirme kodu gir (PC penceresinin üstünde yazar)'],1);toast('⚠ kod gerekli');$('in-code').focus();return}
+  S.pairing=true;pairBusy(true);
+  const log=['🔍 adresler aranıyor…'];pairShow(log);toast('🔍 eşleştirme başladı…');
+  try{
+    const candidates=[];
+    if(addr)candidates.push(addr);
+    const disc=await discoverAddrs();
+    for(const a of disc)if(!candidates.some(x=>x.toLowerCase()===a.toLowerCase()))candidates.push(a);
+    if(!candidates.length){pairShow(['✗ bilgisayar bulunamadı','• PC penceresi açık mı?','• aynı ağda mısın? adresi elle yaz (ör: 192.168.1.6:4848)'],1);toast('✗ PC bulunamadı');return}
+    log[0]='🔍 adresler: '+candidates.join('  ·  ');pairShow(log);
+    let out=null,okAddr=null,i=0,firstErr=null;
+    for(const cand of candidates){
+      i++;
+      // https sayfadan özel IP (self-signed) tarayıcıda engellenir → uzun bekleme yok
+      const quick=location.protocol==='https:'&&isPrivateAddr(cand)&&!/\.trycloudflare\.com/i.test(cand);
+      log.push(`${i}) ${cand}${quick?' (sertifika: hızlı deneme)':''} → deneniyor…`);pairShow(log);
+      const r=await pairAttempt(cand,code,quick?3000:10000);
+      // ÖNEMLİ: hatalı aday (yanlış otomatik dolan adres / site / ölü LAN) döngüyü
+      // KİLİTLEMEZ — diğer adaylar (tünel) denenmeye devam eder. Sadece hepsi
+      // başarısız olursa ilk hata gösterilir.
+      if(r&&!r.err){out=r;okAddr=cand;break}
+      if(r&&r.err&&!firstErr)firstErr=r.err;
+      log[log.length-1]=`${i}) ${cand} → ✗ ${(r&&r.err)?r.err:'ulaşılamadı'}`;pairShow(log);
+    }
+    if(!out){
+      if(firstErr){log.push('✗ '+firstErr);toast('✗ '+firstErr);pairShow(log,1);return}
+      log.push('✗ hiçbir adrese ulaşılamadı');
+      log.push(location.protocol==='https:'?'💡 sayfa https olduğu için LAN adresi kilitli — PC penceresindeki QR ı "KOD TARA" ile okut.':'💡 internet/ağ bağlantını kontrol et.');
+      pairShow(log,1);toast('✗ eşleştirilemedi');return;
+    }
+    addr=okAddr;save('addr',addr);$('in-addr').value=addr;
+    save('token',out.token);save('devname',out.name);
+    log.push('✓ eşleştirildi: '+addr);pairShow(log);
+    toast('✓ eşleştirildi — bağlanıyor…');
+    connectWS();
+  }catch(e){
+    pairShow(['✗ beklenmeyen hata: '+((e&&e.message)||e)],1);toast('✗ hata');
+  }finally{
+    S.pairing=false;pairBusy(false);
   }
-  if(!out){setStatus('hiçbir adrese ulaşılamadı — internet/ağ bağlantını kontrol et (keşif: '+(disc.join(', ')||'boş')+')',1);return}
-  if(out.err){setStatus(out.err,1);return}
-  addr=okAddr;save('addr',addr);$('in-addr').value=addr;
-  save('token',out.token);save('devname',out.name);
-  setStatus('eşleştirildi ✓ bağlanıyor…');
-  connectWS();
 }
 
 function connectWS(){
@@ -2366,15 +2421,19 @@ async function autoRepairAddr(){
     setStatus('📡 adres güncellendi (PC yeniden başlamış olabilir) — bağlanıyor…');
     if(tokenOf())connectWS();
   }else{
-    setStatus('kayıtlı adrese ulaşılamadı ve keşif dosyası boş — PC açık mı?',1);
+    setStatus('kayıtlı adrese ulaşılamadı — PC penceresi kapalı olabilir. "CİHAZ EŞLEŞTİR" ile yeniden bağlan.',1);
   }
 }
 (function init(){
   // ajan bu sayfayı servis ediyorsa adresi otomatik doldur
   if(location.protocol==='http:'||location.protocol==='https:'){
     const host=location.host;
-    // yalnızca kayıtlı adres yoksa otomatik doldur (kaydı ezme!)
-    if(host&&!/:443$/.test(host)&&!addrOf()){$('in-addr').value=host}
+    // YALNIZCA sayfayı PC ajanı servis ediyorsa otomatik doldur (kaydı ezme!).
+    // GitHub Pages / netlify gibi sitelerden açılınca siteyi "PC" sanıp oraya
+    // eşleştirme deniyordu (404) ve diğer adaylara hiç geçmiyordu.
+    const siteLike=/(github\.io|netlify\.app|pages\.dev|vercel\.app|web\.app|onrender\.com)/i.test(host.replace(/:\d+$/,''));
+    const agentPage=!siteLike&&(isPrivateAddr(host)||/\.trycloudflare\.com$/i.test(host.replace(/:\d+$/,'')));
+    if(host&&agentPage&&!/:443$/.test(host)&&!addrOf()){$('in-addr').value=host}
   }
   const a=addrOf();if(a&&!$('in-addr').value){$('in-addr').value=a}
   if(tokenOf()&&a){
