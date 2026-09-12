@@ -199,6 +199,7 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
     <button class="btn" id="btn-pair">CİHAZI EŞLEŞTİR</button>
     <button class="btn ghost" id="btn-scan">📷 KOD TARA (QR)</button>
     <button class="btn ghost" id="btn-connect" style="display:none">YENİDEN BAĞLAN</button>
+    <button class="btn ghost" id="btn-diag" style="margin-top:6px">🔍 TANI (bağlanmıyorsa bas)</button>
     <div id="conn-status"></div>
    </div>
   </div>
@@ -592,7 +593,7 @@ const S={
   micOn:false,micCtx:null,micProc:null,micSrc:null,micBeginSent:false,micId:0,micAck:false,micQ:[],micStartT:0,
   zoom:1,pinchD:0,momV:0,momT:0,frameW:0,frameH:0,
   micLive:false,statsT:0,relayUrl:'',lanAddr:'',
-  wakeLock:null,rcTries:0,
+  wakeLock:null,rcTries:0,repairing:false,
 };
 S.ctx=S.canvas.getContext('2d');
 
@@ -611,25 +612,208 @@ async function releaseWake(){
   S.wakeLock=null;
 }
 
-/* ================= bağlan ================= */
+/* ================= bağlan =================
+   2026-09-12 YENİDEN YAZIM — "dışarıdan bağlanamıyorum" arızasının kökü:
+   telefon kayıtlı EV LAN adresine yapışıp kalıyordu (dışarıda o adres yok) ve
+   "YENİDEN BAĞLAN" hiç keşif yapmadan doğrudan o adrese gidiyordu → tarayıcı
+   "bağlantı reddedildi" diyordu, ajanı hiç görmüyordu bile (hub kaydında kanıt).
+   Artık:
+     • kalıcı adres defteri: tailnet + tünel + LAN + son çalışan (localStorage)
+     • her bağlanmada adaylar PARALEL yoklanır (/ping, ~2 sn) → çalışan seçilir
+     • https sayfada LAN adayı hiç denenmez (tarayıcı self-signed'ı zaten engeller)
+     • token reddedilirse telefon HATIRLADIĞI kodla sessizce yeniden eşleşir
+     • her adım DIAG kaydına yazılır → ekranda görünür + PC loguna gönderilir
+*/
 function addrOf(){return load('addr','')}
 function tokenOf(){return load('token','')}
-
+function bookOf(){try{return JSON.parse(load('addrbook','{}'))||{}}catch(_){return {}}}
+function bookSave(patch){const b=bookOf();for(const k in (patch||{}))if(patch[k])b[k]=patch[k];b.ts=Date.now();try{save('addrbook',JSON.stringify(b))}catch(_){}}
+/* çalışan adresi türüne göre deftere yaz (son çalışan + tünel/tailnet/LAN) */
+function bookmarkAddr(addr){
+  const c=cleanAddr(addr);if(!c)return;
+  if(isRelayAddr(c))bookSave({lastGood:c,relay:c});
+  else if(isTailAddr(c))bookSave({lastGood:c,tail:c});
+  else bookSave({lastGood:c,lan:c});
+}
+function devId(){let v=load('devid','');if(!v){v='d'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);save('devid',v)}return v}
+/* DIAG: telefon tarafı teşhis kaydı — ekranda gösterilir, bağlanınca PC loguna düşer */
+const DIAG=[];
+function diag(line){
+  const t=new Date().toISOString().slice(11,19);
+  DIAG.push(t+' '+line);
+  if(DIAG.length>80)DIAG.shift();
+  try{console.log('[panpi]',t,line)}catch(_){}
+}
+function isRelayAddr(a){return /\.trycloudflare\.com/i.test(String(a))}
+function isTailAddr(a){return /\.ts\.net/i.test(String(a))}
+function isLanAddr(a){return isPrivateAddr(String(a).replace(/^https?:\/\//,''))&&!isRelayAddr(a)&&!isTailAddr(a)}
+function cleanAddr(a){return String(a||'').trim().replace(/^https?:\/\//,'').replace(/\/+$/,'')}
+function schemeOf(a){
+  const s=cleanAddr(a);
+  if(isRelayAddr(s)||isTailAddr(s))return 'https://';   // ikisi de geçerli sertifikalı adres
+  if(location.protocol==='https:'||tlsForced())return 'https://';
+  return 'http://';
+}
+function wsSchemeOf(a){return schemeOf(a)==='https://'?'wss://':'ws://'}
 function setStatus(msg,isErr){const el=$('conn-status');el.textContent=msg;el.classList.toggle('err',!!isErr)}
-
 function tlsForced(){return load('forceTLS','')==='1'}
 
+/* aday listesi (öncelik sırası): son çalışan → tailnet → tünel → kayıtlı → LAN */
+function candidateAddrs(extra){
+  const b=bookOf();const out=[];
+  const push=(a)=>{const c=cleanAddr(a);if(!c)return;if(location.protocol==='https:'&&isLanAddr(c))return;if(!out.some(x=>x.toLowerCase()===c.toLowerCase()))out.push(c)};
+  push(b.lastGood);push(b.tail);push(b.relay);push(addrOf());push(b.lan);
+  for(const a of (extra||[]))push(a);
+  return out;
+}
+/* tek adayı yokla: /ping (2 sn). Ajan her koşulda cevap verir → "ölü adres" hızlı elenir. */
+async function probeAddr(addr,toMs){
+  const base=schemeOf(addr)+cleanAddr(addr);
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),toMs||2000);
+  const t0=Date.now();
+  try{
+    const r=await fetch(base+'/ping',{cache:'no-store',signal:c.signal});
+    clearTimeout(t);
+    const j=await r.json().catch(()=>({}));
+    return {addr:cleanAddr(addr),ok:!!r.ok&&!!j&&j.ok===true,ms:Date.now()-t0,v:j&&j.v};
+  }catch(e){clearTimeout(t);return {addr:cleanAddr(addr),ok:false,ms:Date.now()-t0}}
+}
+/* adayları PARALEL yokla → en hızlı cevap vereni seç.
+   (Eskiden sırayla denenirdi: dışarıda ilk sıradaki ölü LAN adayı 10 sn yiyordu.) */
+async function pickAddr(show){
+  // KRİTİK: keşif dosyası (GitHub relay.json) + A5 hub adaylari da yoklanmalı.
+  // (İlk yazımda atlanmıştı: telefon yalnızca defterdeki ölü ev adresini deniyor,
+  //  tüneli hiç görmüyordu — outside-sim testi bu hatayı yakaladı.)
+  let disc=[];
+  try{disc=await discoverAddrs()}catch(_){}
+  if(show&&disc.length)diag('keşif adayları: '+disc.join(' · '));
+  const cands=candidateAddrs(disc);
+  if(!cands.length)return null;
+  diag('yoklama: '+cands.join(' · '));
+  const res=await Promise.all(cands.map(a=>probeAddr(a)));
+  const live=res.filter(r=>r.ok);
+  for(const r of res)diag(r.addr+' → '+(r.ok?'✓ '+r.ms+'ms':'✗ ulaşılamadı'));
+  if(show)pairShow(res.map(r=>(r.ok?'✓ ':'✗ ')+r.addr+(r.ok?' ('+r.ms+' ms)':'')),!live.length);
+  if(!live.length)return null;
+  live.sort((a,b)=>a.ms-b.ms);
+  return live[0].addr;
+}
+/* kayıtlı token gerçekten geçerli mi? WS el sıkışması başarısız olunca tarayıcı
+   yalnızca 1006 gösterir; GERÇEK nedeni (token-yok / kilit) /whoami söyler. */
+async function whoami(addr){
+  if(!addr)return {status:0,j:{}};
+  try{
+    const base=schemeOf(addr)+cleanAddr(addr);
+    const c=new AbortController(),t=setTimeout(()=>c.abort(),4000);
+    const r=await fetch(base+'/whoami?token='+encodeURIComponent(tokenOf()),{cache:'no-store',signal:c.signal});
+    clearTimeout(t);
+    const j=await r.json().catch(()=>({}));
+    return {status:r.status,j:j};
+  }catch(_){return {status:0,j:{}}}
+}
 async function pairAttempt(addr,code,toMs){
-  const base=location.protocol==='https:'||tlsForced()||/\.trycloudflare\.com/i.test(addr)?`https://${addr}`:`http://${addr}`;
+  const base=schemeOf(addr)+cleanAddr(addr);
   const c=new AbortController(),t=setTimeout(()=>c.abort(),toMs||10000); // karanlık delik yok
   try{
     const r=await fetch(`${base}/pair`,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({code,name:'Telefon'}),signal:c.signal});
+      body:JSON.stringify({code,name:'Telefon',deviceId:devId()}),signal:c.signal});
     clearTimeout(t);
     const j=await r.json().catch(()=>({}));
     if(!r.ok)return {err:j.error||('eşleştirme başarısız ('+r.status+')')};
-    return {token:j.token,name:j.name};
+    return {token:j.token,name:j.name,devId:j.devId||j.deviceId};
   }catch(e){clearTimeout(t);return null} // ağ hatası: null → arayana keşif sinyali
+}
+/* kod YAZMADAN bağlan: hatırlanan kodu sessizce gönder (arka kapı).
+   Kod ilk başarılı eşleşmede/QR'da hatırlanır; kullanıcı bir daha yazmaz. */
+async function autoRepair(show){
+  const code=load('paircode','');
+  if(!code){diag('otomatik eşleşme: hatırlanan kod yok → elle kod gerekir');return false}
+  const addr=await pickAddr(show);
+  if(!addr){diag('otomatik eşleşme: canlı adres bulunamadı');return false}
+  const r=await pairAttempt(addr,code,10000);
+  if(r&&!r.err){
+    save('token',r.token);save('addr',addr);save('devname',r.name||'Telefon');
+    if(r.devId)save('devrec',r.devId);
+    bookSave({lastGood:addr});
+    diag('otomatik yeniden eşleşme ✓ '+addr);
+    setStatus('kayıtlı cihaz yenilendi — bağlanıyor…');
+    connectWS(addr);
+    return true;
+  }
+  diag('otomatik eşleşme ✗ '+((r&&r.err)||'ulaşılamadı'));
+  // Kod GEÇERSİZSE hatırlamanın anlamı kalmadı: PC kodu yenilemiştir (sabit kod
+  // değilse). Kullanıcı bir kez daha yazmalı — yoksa sonsuz deneme döngüsü olur.
+  if(r&&r.err&&/geçersiz|gecersiz/i.test(r.err)){
+    save('paircode','');
+    diag('hatırlanan kod artık geçersiz (PC kodu yeniledi) — bir kez elle girmek gerekiyor');
+  }
+  return false;
+}
+/* bağlantı kurulamadı → sessiz ölüm yok: yokla, token'ı sorgula, gerekirse yeniden eşleş */
+async function repairFlow(){
+  if(S.repairing)return;
+  S.repairing=true;
+  try{
+    setStatus('adresler yoklanıyor…');
+    const addr0=addrOf();
+    const w=await whoami(addr0);
+    diag('whoami('+(addr0||'-')+'): '+w.status+' '+((w.j&&w.j.reason)||''));
+    if(w.status===423){
+      setStatus('🔒 PC bu adresi geçici reddediyor ('+(w.j.retryAfter||'?')+' sn) — birazdan tekrar dene',1);
+      return;
+    }
+    if(w.status===200){ setStatus('bağlanıyor…'); S.repairFails=0; connectWS(addr0); return }  // token sağlam → sadece yol kopmuş
+    if(w.status===401){ // token-yok → hatırlanan kodla sessizce yenil
+      setStatus('kayıtlı cihaz geçersiz — otomatik yeniden eşleşiliyor…',1);
+      if(await autoRepair(true))return;
+    }
+    const addr=await pickAddr(true);
+    if(addr){
+      if(cleanAddr(addr)!==cleanAddr(addr0))bookSave({lastGood:addr});
+      S.repairFails=0;
+      setStatus('bağlanıyor…');
+      connectWS(addr);
+      return;
+    }
+    if(tokenOf()&&await autoRepair(false))return;
+    // Çıkmaz sokak yok ama sonsuz sıkı döngü de yok: artan bekleme ile tekrar dene
+    S.repairFails=(S.repairFails||0)+1;
+    const wait=Math.min(30000,3000*S.repairFails);
+    setStatus('bilgisayara ulaşılamadı — '+Math.round(wait/1000)+' sn sonra tekrar denenecek (kodunla "CİHAZ EŞLEŞTİR" ile hemen deneyebilirsin)',1);
+    pairShow(DIAG.slice(-7),1);
+    clearTimeout(S.repairT);
+    S.repairT=setTimeout(()=>repairFlow(),wait);
+  }catch(e){diag('repair hata: '+((e&&e.message)||e))}
+  finally{S.repairing=false}
+}
+/* teşhis ekranı: kopyala-yapıştır ile bana iletilebilir */
+function showDiag(){
+  const lines=DIAG.slice(-40).concat(['','token: '+(tokenOf()?'var':'yok'),'adres: '+(addrOf()||'-'),'kod hatırlanıyor: '+(load('paircode','')?'evet':'hayır'),'protokol: '+location.protocol,'url: '+location.host]);
+  let m=document.getElementById('diagmodal');
+  if(!m){
+    m=document.createElement('div');m.id='diagmodal';
+    m.style.cssText='position:fixed;inset:0;background:#000c;z-index:9999;display:flex;flex-direction:column;padding:12px;gap:8px';
+    m.innerHTML='<div style="display:flex;gap:8px;align-items:center"><b style="flex:1">🔍 TANI</b>'+
+      '<button id="diagcopy" class="btn" style="width:auto;padding:6px 10px">📋 KOPYALA</button>'+
+      '<button id="diagclose" class="btn ghost" style="width:auto;padding:6px 10px">✕</button></div>'+
+      '<pre id="diagtext" style="flex:1;overflow:auto;background:#111;color:#9f9;font:11px/1.5 monospace;padding:8px;border-radius:6px;white-space:pre-wrap;margin:0"></pre>';
+    document.body.appendChild(m);
+    document.getElementById('diagclose').onclick=()=>m.remove();
+    document.getElementById('diagcopy').onclick=()=>{
+      const tx=document.getElementById('diagtext').textContent;
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(tx).then(()=>toast('📋 kopyalandı')).catch(()=>toast('kopyalanamadı',1));
+      else toast('kopyalama yok');
+    };
+  }
+  document.getElementById('diagtext').textContent=lines.join('\n');
+}
+/* bağlıyken tanı satırlarını PC loguna gönder (dışarıdan teşhisin tek kanalı) */
+function pushDiag(){
+  if(!S.authed)return;
+  try{
+    const base=schemeOf(addrOf())+cleanAddr(addrOf());
+    fetch(base+'/diag-log',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tokenOf()},cache:'no-store',body:JSON.stringify({lines:DIAG.slice(-20)})}).catch(()=>{});
+  }catch(_){}
 }
 function pairBtnLabel(){return tokenOf()?'YENİDEN EŞLEŞTİR (cihaz değiştir)':'CİHAZ EŞLEŞTİR'}
 /* buton her zaman GÖRÜNÜR tepki verir (kullanıcı "tepki yok" demesin) */
@@ -652,56 +836,74 @@ async function pairAndConnect(){
   const code=$('in-code').value.trim().toUpperCase();
   try{if(document.activeElement&&document.activeElement.blur)document.activeElement.blur()}catch(_){} // klavye kapanınca durum satırı görünür
   if(S.pairing)return;
-  if(!code){pairShow(['⚠ önce 6 haneli eşleştirme kodu gir (PC penceresinin üstünde yazar)'],1);toast('⚠ kod gerekli');$('in-code').focus();return}
+  if(!code){pairShow(['⚠ önce eşleştirme kodunu gir (PC penceresinin üstünde yazar)'],1);toast('⚠ kod gerekli');$('in-code').focus();return}
   S.pairing=true;pairBusy(true);
   const log=['🔍 adresler aranıyor…'];pairShow(log);toast('🔍 eşleştirme başladı…');
   try{
-    const candidates=[];
-    if(addr)candidates.push(addr);
+    // adaylar: yazılan adres + kalıcı defter + keşif dosyası (hepsi PARALEL yoklanır)
     const disc=await discoverAddrs();
-    for(const a of disc)if(!candidates.some(x=>x.toLowerCase()===a.toLowerCase()))candidates.push(a);
-    if(!candidates.length){pairShow(['✗ bilgisayar bulunamadı','• PC penceresi açık mı?','• aynı ağda mısın? adresi elle yaz (ör: 192.168.1.6:4848)'],1);toast('✗ PC bulunamadı');return}
+    const candidates=[];
+    const push=(a)=>{const c=cleanAddr(a);if(!c)return;if(location.protocol==='https:'&&isLanAddr(c))return;if(!candidates.some(x=>x.toLowerCase()===c.toLowerCase()))candidates.push(c)};
+    if(addr)push(addr);
+    for(const a of candidateAddrs(disc))push(a);
+    if(!candidates.length){pairShow(['✗ bilgisayar bulunamadı','• PC penceresi açık mı?','• adresi elle yaz (ör: 192.168.1.6:4848)'],1);toast('✗ PC bulunamadı');return}
     log[0]='🔍 adresler: '+candidates.join('  ·  ');pairShow(log);
+    // ÖNCE hepsini paralel yokla: çalışanı başa al, ölü adreste bekleme
+    const probes=await Promise.all(candidates.map(a=>probeAddr(a,2500)));
+    for(const pr of probes)diag('yoklama '+pr.addr+' → '+(pr.ok?'✓ '+pr.ms+'ms':'✗'));
+    const ranked=probes.filter(p=>p.ok).sort((a,b)=>a.ms-b.ms).map(p=>p.addr)
+      .concat(probes.filter(p=>!p.ok).map(p=>p.addr));
+    const liveN=probes.filter(p=>p.ok).length;
+    log[0]='🔍 '+liveN+' adres cevap verdi'+(liveN?'':' (henüz kimse cevap vermedi)');pairShow(log);
     let out=null,okAddr=null,i=0,firstErr=null;
-    for(const cand of candidates){
+    for(const cand of ranked){
       i++;
-      // https sayfadan özel IP (self-signed) tarayıcıda engellenir → uzun bekleme yok
-      const quick=location.protocol==='https:'&&isPrivateAddr(cand)&&!/\.trycloudflare\.com/i.test(cand);
-      log.push(`${i}) ${cand}${quick?' (sertifika: hızlı deneme)':''} → deneniyor…`);pairShow(log);
-      const r=await pairAttempt(cand,code,quick?3000:10000);
-      // ÖNEMLİ: hatalı aday (yanlış otomatik dolan adres / site / ölü LAN) döngüyü
-      // KİLİTLEMEZ — diğer adaylar (tünel) denenmeye devam eder. Sadece hepsi
-      // başarısız olursa ilk hata gösterilir.
+      log.push(`${i}) ${cand} → deneniyor…`);pairShow(log);
+      const r=await pairAttempt(cand,code,10000);
+      // Hatalı aday döngüyü KİLİTLEMEZ — sıradaki aday denenir.
       if(r&&!r.err){out=r;okAddr=cand;break}
       if(r&&r.err&&!firstErr)firstErr=r.err;
       log[log.length-1]=`${i}) ${cand} → ✗ ${(r&&r.err)?r.err:'ulaşılamadı'}`;pairShow(log);
+      diag('pair '+cand+' ✗ '+((r&&r.err)||'ulaşılamadı'));
     }
     if(!out){
       if(firstErr){log.push('✗ '+firstErr);toast('✗ '+firstErr);pairShow(log,1);return}
       log.push('✗ hiçbir adrese ulaşılamadı');
-      log.push(location.protocol==='https:'?'💡 sayfa https olduğu için LAN adresi kilitli — PC penceresindeki QR ı "KOD TARA" ile okut.':'💡 internet/ağ bağlantını kontrol et.');
+      log.push('💡 PC tarafında tünel kapalı olabilir — sayfayı yenile, keşif dosyası tazelenir.');
       pairShow(log,1);toast('✗ eşleştirilemedi');return;
     }
     addr=okAddr;save('addr',addr);$('in-addr').value=addr;
     save('token',out.token);save('devname',out.name);
+    // KOD HATIRLANIR: bundan sonra hiç yazmadan bağlanırsın (arka kapı)
+    save('paircode',code);
+    if(out.devId)save('devrec',out.devId);
+    bookSave({lastGood:addr,lan:isLanAddr(addr)?addr:'',relay:isRelayAddr(addr)?addr:'',tail:isTailAddr(addr)?addr:''});
+    diag('eşleşme ✓ '+addr+' (kod hatırlandı)');
     log.push('✓ eşleştirildi: '+addr);pairShow(log);
     toast('✓ eşleştirildi — bağlanıyor…');
-    connectWS();
+    connectWS(addr);
   }catch(e){
+    diag('pair hata: '+((e&&e.message)||e));
     pairShow(['✗ beklenmeyen hata: '+((e&&e.message)||e)],1);toast('✗ hata');
   }finally{
     S.pairing=false;pairBusy(false);
   }
 }
 
-function connectWS(){
-  const inp=$('in-addr').value.trim().replace(/^https?:\/\//,'');
-  if(inp)save('addr',inp);
-  const addr=inp||addrOf(),token=tokenOf();
-  if(!addr||!token){setStatus('önce eşleştir',1);return}
+/* addrOverride: keşif/onarım sonucu bulunan adres. VERİLDİĞİNDE kazanır ve
+   adres alanına da yazılır — aksi halde bayat (ölü) alan değeri keşfi ezip
+   sonsuz "bağlantı kurulamadı" döngüsü kuruyordu (outside-sim testi yakaladı). */
+function connectWS(addrOverride){
+  let addr=cleanAddr(addrOverride||'');
+  if(addr){try{$('in-addr').value=addr}catch(_){}}
+  else addr=cleanAddr($('in-addr').value)||addrOf();
+  const token=tokenOf();
+  if(addr)save('addr',addr);
+  if(!addr||!token){setStatus('kodunu girip CİHAZ EŞLEŞTİR yap',1);return}
   setStatus('bağlanıyor…');
   clearTimeout(S.reconnectT);
-  const base=location.protocol==='https:'||tlsForced()||/\.trycloudflare\.com/i.test(addr)?`wss://${addr}`:`ws://${addr}`;
+  bookmarkAddr(addr);
+  const base=wsSchemeOf(addr)+cleanAddr(addr);
   let ws;
   try{ws=new WebSocket(`${base}/ws?token=${encodeURIComponent(token)}`)}
   catch(e){setStatus('adres hatalı',1);return}
@@ -757,7 +959,7 @@ function connectWS(){
     if(!m){handlePlain(plain);return}
     handleMsg(m);
   }
-  ws.onclose=()=>{
+  ws.onclose=(ev)=>{
     stopPing();stopStats();
     releaseWake();
     if(S.gaveUp)return;
@@ -766,32 +968,29 @@ function connectWS(){
     S.upBusy=false;S.upFile=null;S.dlBusy=false;
     if(S.micOn){S.micOn=false;S.micAck=false;S.micBeginSent=false;S.micQ=[];try{S.micProc&&S.micProc.disconnect()}catch(_){}try{S.micCtx&&S.micCtx.close()}catch(_){}S.micCtx=null;S.micProc=null;S.micSrc=null;setMicBtn()}
     if($('scr-main').classList.contains('on')){
-      // üstel geri çekilme: 2s → 4s → 8s → 15s (max), başarıda sıfırlanır
+      // ana ekran: üstel geri çekilme (2s → 15s) + her 2 kopmada adresleri YENİDEN YOKLA
       const d=Math.min(15000,2000*Math.pow(2,S.rcTries++));
-      // akıllı adres değişimi: mevcut adres 2 kez üst üste tutmadıysa diğer yola geç
-      // (LAN ↔ trycloudflare relay) — ev dışına çıkınca/inince otomatik bulur
-      if(S.rcTries>=2){
-        const cur=$('in-addr').value.trim();
-        const isRelay=/\.trycloudflare\.com/i.test(cur);
-        const other=isRelay?(S.lanAddr||''):(S.relayUrl||'');
-        if(other){
-          if(!isRelay&&!S.lanAddr)S.lanAddr=cur; // LAN adresini hatırla
-          $('in-addr').value=other.replace(/^https?:\/\//,'').replace(/\/+$/,'');save('addr',$('in-addr').value);
-          S.rcTries=0;
-          toast(isRelay?'🏠 LAN adresine geçiliyor…':'📡 mobil erişime geçiliyor…');
-        } else {
-          // başka yol bilinmiyor → keşif dosyasından dene
-          discoverAddr().then(f=>{if(f&&f!==cur){$('in-addr').value=f;save('addr',f);S.rcTries=0;toast('📡 keşif: yeni adres bulundu')}});
-        }
-      }
       toast('bağlantı koptu, '+Math.round(d/1000)+' sn sonra yeniden…');
-      S.reconnectT=setTimeout(connectWS,d);
-    }else{setStatus('bağlantı kurulamadı',1)}
+      if(S.rcTries>=2){
+        diag('ana ekran kopma #'+S.rcTries+' → adresler yeniden yoklanacak');
+        S.rcTries=0;
+        S.reconnectT=setTimeout(()=>repairFlow(),d);
+        return;
+      }
+      S.reconnectT=setTimeout(()=>connectWS(),d);
+    }else{
+      // bağlanma ekranı: sessiz çıkmaz sokak YOK — nedeni bulunur, gerekirse yeniden eşleşilir
+      diag('bağlantı kurulamadı (kod '+((ev&&ev.code)||0)+') → onarım akışı');
+      setStatus('bağlantı kurulamadı — onarılıyor…',1);
+      const cd=Math.min(15000,600+(S.repairFails||0)*1500);  // artan bekleme (sıkı döngü yok)
+      S.reconnectT=setTimeout(()=>repairFlow(),cd);
+    }
   };
   ws.onerror=()=>{};
   ws.addEventListener('close',(ev)=>{ // 4xx kapanışta nedeni göster (sessiz yeniden deneme tuzağını önler)
-    if(ev.code===423)setStatus('🔒 güvenlik kilidi: PC 2 dk reddediyor (yanlış kod denemeleri) — bekleyip tekrar dene',1);
-    else if(ev.code===4003)setStatus('🔒 PC güvenlik kilidi — bağlantı reddedildi',1);
+    if(ev.code===423)setStatus('🔒 PC bu adresi geçici reddediyor — birazdan tekrar dene',1);
+    else if(ev.code===4003)setStatus('🔒 PC güvenlik kilidi (bu sürümde artık yalnız o IP için)',1);
+    else if(ev.code===4005)setStatus('🔑 kayıtlı cihaz geçersiz — otomatik yeniden eşleşiliyor…',1);
   });
 }
 function b64u(u8){let s='';for(const b of u8)s+=String.fromCharCode(b);return btoa(s)}
@@ -1090,6 +1289,8 @@ function handleMsg(m){
   switch(m.t){
     case 'ready':{
       S.authed=true;S.pcName=m.device||'PC';S.rcTries=0;
+      diag('oturum hazır ✓ '+(m.device||'PC')+' v'+(m.v||'?'));
+      setTimeout(()=>pushDiag(),1500); // teşhis satırları PC loguna düşsün (uzaktan teşhis)
       $('pc-name').textContent=S.pcName;$('d-name').textContent=S.pcName;
       showScreen('main');startPing();startStats();requestWake();send({t:'mix-master'});send({t:'mix-list'});send({t:'notify-history'});send({t:'powerinfo'});send({t:'audio-status'});send({t:'settings'});
       // sürüm + MAC bilgisi (ajan /health'ten geliyor; WS'de yoksa health'e sar)
@@ -1290,9 +1491,15 @@ function handleMsg(m){
       break;
     }
     case 'relay-url':{
-      // tünel URL'i değişti — bağlantı adresini sessizce güncelle (koptuğunda yeni adrese bağlanır)
+      // tünel URL'i değişti — KALICI deftere yaz (sayfa yenilenince kaybolmasın)
       S.relayUrl=m.url||'';
+      if(m.url){bookSave({relay:m.url});diag('tünel adresi: '+m.url)}
       if(m.url)toast('📡 mobil erişim hazır — ev dışından bağlanabilirsin');
+      break;
+    }
+    case 'tail-url':{
+      // Tailscale kalıcı adresi (varsa) — tünel adresi değişse bile bu sabit kalır
+      if(m.url){bookSave({tail:m.url});diag('tailnet adresi: '+m.url);toast('🛰 kalıcı adres hazır (tailnet)')}
       break;
     }
     case 'stats':{
@@ -1715,8 +1922,8 @@ document.querySelectorAll('#minikbd .key').forEach(k=>{
     if(act==='type'){openTypewriter();return}
     if(act==='ctrlaltend'){sendCombo([17,18,35]);return}
     if(act==='alttab'){sendCombo([18,9]);return}
-    if(act==='esc'){sendKey(27,ext);return}
-    if(act==='tab'){sendKey(9,ext);return}
+    if(act==='esc'){pressKey(27,ext);return}
+    if(act==='tab'){pressKey(9,ext);return}
     if(act==='win'){sendKey(91,true,true);setTimeout(()=>sendKey(91,false,true),60);return}
     if(act==='clip-get'){send({t:'clip-get'});return}
     if(act==='clip-set'){
@@ -1739,12 +1946,17 @@ document.querySelectorAll('#minikbd .key').forEach(k=>{
     if(vk){
       const mods=activeMods();
       mods.forEach(m=>send({t:'key',vk:MOD_VK[m],down:true,ext:m==='alt'||m==='ctrl'}));
-      sendKey(vk,ext);
+      pressKey(vk,ext);
       setTimeout(()=>{mods.slice().reverse().forEach(m=>send({t:'key',vk:MOD_VK[m],down:false,ext:m==='alt'||m==='ctrl'}));mods.forEach(m=>{S.mods[m]=0;document.querySelector(`[data-mod=${m}]`)?.classList.remove('sticky')});updateModState()},40);
     }
   });
 });
 function sendKey(vk,down,ext){send({t:'key',vk,down,ext:!!ext})}
+/* TUZAK: sendKey(vk,down,ext) üç argüman alır. Bir tuşa basmak = KEYDOWN **ve**
+ * KEYUP. Eskiden `sendKey(vk,ext)` çağrılıyordu → ext (genelde false) `down`
+ * yerine geçiyordu ve YALNIZCA keyup gidiyordu: mini klavyenin harf/rakam/F
+ * tuşlarının hiçbiri Windows'a basılmıyordu. pressKey ikisini birden gönderir. */
+function pressKey(vk,ext,holdMs){sendKey(vk,true,ext);setTimeout(()=>sendKey(vk,false,ext),holdMs||30)}
 
 /* ================= dosya gezgini v2 ================= */
 S.fsCur=null;S.fsPath='';
@@ -2092,7 +2304,7 @@ async function refreshPcInfo(){
   try{
     const base=(location.protocol==='https:'||tlsForced())?'https://':'http://';
     const addr=addrOf();
-    const r=await fetch(base+addr+'/health',{cache:'no-store'});
+    const r=await fetch(base+addr+'/health?token='+encodeURIComponent(tokenOf()),{cache:'no-store'}); // token: MAC/ip gibi alanlar artık yalnız eşleşmiş cihaza açık
     const j=await r.json();
     if(verEl)verEl.textContent=j.version?('v'+j.version):'—';
     if(j.macs&&j.macs.length){
@@ -2357,7 +2569,9 @@ function qrTick(){
 
 /* ================= başlangıç ================= */
 $('btn-pair').onclick=pairAndConnect;
-$('btn-connect').onclick=connectWS;
+$('btn-connect').onclick=()=>{setStatus('adresler yoklanıyor…');repairFlow();};
+$('btn-diag').onclick=showDiag;
+window.__panpiDiag=showDiag;
 $('btn-scan').onclick=qrStart;
 $('btn-qr-close').onclick=qrStop;
 window.__panpiScan=qrStart; // APK köprüsü: requestScan() bunu çağırır
@@ -2379,20 +2593,28 @@ async function discoverFromHub(){
     for(const p of Object.values(j.pcs||{}))if(!best||p.ts>best.ts)best=p;
     if(!best)return [];
     const out=[];
-    if(best.lan)out.push(String(best.lan).replace(/^https?:\/\//,''));
+    if(best.tail)out.push(String(best.tail).replace(/^https?:\/\//,''));
     if(best.relay)out.push(String(best.relay).replace(/^https?:\/\//,''));
+    if(best.lan)out.push(String(best.lan).replace(/^https?:\/\//,''));
     return out;
   }catch(_){return []}
 }
+function discoverUrl(){return load('discoverurl','')||DISCOVER_URL}
 async function discoverFromGitHub(){
   try{
-    const r=await fetch(DISCOVER_URL+'?t='+Date.now(),{cache:'no-store'});
+    const r=await fetch(discoverUrl()+'?t='+Date.now(),{cache:'no-store'});
     if(!r.ok)return [];
     const j=await r.json();
     const out=[];
-    // ÖNCE LAN (evdeyken VPN/tünel ölü olsa bile çalışır), sonra relay
-    if(j&&j.lan)out.push(String(j.lan).replace(/^https?:\/\//,''));
-    if(j&&j.relay&&/\.trycloudflare\.com/i.test(j.relay))out.push(String(j.relay).replace(/^https?:\/\//,''));
+    // Sıra: tailnet (SABİT) → tünel (değişken) → LAN (evdeki hızlı yol).
+    // Önemli: bulunan adresler KALICI deftere yazılır — sayfa yenilenince kaybolmaz.
+    // NOT: filtre artık gevşek — her aday zaten /ping ile GERÇEKTEN yoklanıyor,
+    // yani "sahte adres" kendiliğinden elenir (eskiden katı regex yüzünden
+    // geçerli bir adresi de atlayabiliyordu).
+    const add=(v,tag)=>{const c=String(v||'').replace(/^https?:\/\//,'').replace(/\/+$/,'').trim();if(!c||/\s/.test(c))return;bookSave({[tag]:c});out.push(c)};
+    if(j&&j.tail)add(j.tail,'tail');
+    if(j&&j.relay)add(j.relay,'relay');
+    if(j&&j.lan)add(j.lan,'lan');
     return out;
   }catch(_){return []}
 }
@@ -2436,11 +2658,14 @@ async function autoRepairAddr(){
     if(host&&agentPage&&!/:443$/.test(host)&&!addrOf()){$('in-addr').value=host}
   }
   const a=addrOf();if(a&&!$('in-addr').value){$('in-addr').value=a}
-  if(tokenOf()&&a){
+  if(tokenOf()){
     $('btn-connect').style.display='';
     $('btn-pair').textContent='YENİDEN EŞLEŞTİR (cihaz değiştir)';
-    setStatus('kayıtlı cihaz: '+(load('devname','—'))+' · direkt bağlanabilirsin');
-    autoRepairAddr(); // keşif: kayıtlı adres ölmüşse relay.json'dan tazele
+    setStatus('kayıtlı cihaz: '+(load('devname','—'))+' · bağlanılıyor…');
+    // AÇILIŞTA OTOMATİK BAĞLANMA (2026-09-12 kök düzeltmesi): adresler PARALEL
+    // yoklanır (tailnet/tünel/LAN), çalışan seçilir; token reddedilirse hatırlanan
+    // kodla sessizce yeniden eşleşilir. Kullanıcı ne düğmeye basar ne adres yazar.
+    setTimeout(()=>repairFlow(),300);
   }
   // gece modu tercihi baştan uygula
   if(load('night','')==='1'){try{$('btn-night').click()}catch(_){}}
