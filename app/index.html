@@ -95,6 +95,17 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
   border-top:1px solid var(--line)}
 .kbd-title{font-size:8px;color:var(--dim);padding:3px 8px;letter-spacing:2px;display:flex;
   justify-content:space-between;align-items:center}
+/* canlı bağlantı sağlığı: tek satır (oturum yaşı · gecikme/kare · son kopma · token) */
+#conn-health{flex:1;text-align:center;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  color:var(--dim);transition:color .3s}
+#conn-health b{color:var(--acc);font-weight:normal}
+#conn-health.bad{color:var(--warn);text-shadow:0 0 6px rgba(248,81,73,.4)}
+#conn-health.bad b{color:var(--warn)}
+#conn-hl-connect{font-size:10px;color:var(--dim);min-height:14px;text-align:center;letter-spacing:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 8px;width:100%}
+#conn-hl-connect b{color:var(--acc);font-weight:normal}
+#conn-hl-connect.bad{color:var(--warn)}
+#conn-hl-connect.bad b{color:var(--warn)}
 .kbd-rows{flex:1;display:flex;flex-direction:column;gap:3px;padding:0 6px 6px}
 .krow{flex:1;display:flex;gap:3px;min-height:0}
 .key{flex:1;background:var(--panel2);border:1px solid #243244;border-radius:4px;color:var(--txt);
@@ -201,6 +212,7 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
     <button class="btn ghost" id="btn-connect" style="display:none">YENİDEN BAĞLAN</button>
     <button class="btn ghost" id="btn-diag" style="margin-top:6px">🔍 TANI (bağlanmıyorsa bas)</button>
     <div id="conn-status"></div>
+    <div id="conn-hl-connect" title="canlı bağlantı sağlığı"></div>
    </div>
   </div>
 
@@ -232,7 +244,7 @@ input[type=range]{width:100%;accent-color:var(--acc);touch-action:none}
       </div>
 
       <div id="minikbd">
-        <div class="kbd-title"><span>⌨ 1980 MINI-TERM</span><span id="mod-state"></span></div>
+        <div class="kbd-title"><span>⌨ 1980 MINI-TERM</span><span id="conn-health" title="canlı bağlantı sağlığı">·</span><span id="mod-state"></span></div>
         <div class="kbd-rows">
           <div class="krow">
             <div class="key mod" data-mod="ctrl">CTRL</div>
@@ -582,7 +594,7 @@ const S={
   screenOn:false,fps:load('fps',10),q:load('q',65),res:load('res',720),
   spd:load('spd',16)/10,tapMs:150,
   mods:{ctrl:0,alt:0,shift:0,win:0},
-  stats:{frames:0,bytes:0,last:0},
+  stats:{frames:0,bytes:0,last:0},statsSeen:0,sessT0:0,lastErr:'',
   pingT:0,pingStart:0,latency:0,
   reconnectT:0,gaveUp:false,
   canvas:$('screen-canvas'),ctx:null,imgUrl:null,
@@ -655,8 +667,34 @@ function schemeOf(a){
   return 'http://';
 }
 function wsSchemeOf(a){return schemeOf(a)==='https://'?'wss://':'ws://'}
-function setStatus(msg,isErr){const el=$('conn-status');el.textContent=msg;el.classList.toggle('err',!!isErr)}
+function setStatus(msg,isErr){const el=$('conn-status');el.textContent=msg;el.classList.toggle('err',!!isErr);if(isErr)noteErr(msg)}
 function tlsForced(){return load('forceTLS','')==='1'}
+
+/* ============ canlı bağlantı sağlık göstergesi (tek satır) ============
+ * Bağlı OLURKEN bağlantının yaşayı yaşamadığı tahmin edilemezdi: kare durur,
+ * ses sustu, "bağlandı" yazısı öylece kalırdı. Bu satır tek bakışta verir:
+ *   ● oturum yaşı · gecikme · kare tazeliği · son kopma nedeni · token durumu
+ * Kopukken/alarmda kırmızıya döner; TANI ekranına da S.lastErr düşer. */
+function hlSet(html,bad){
+  const m=$('conn-health'),c=$('conn-hl-connect');
+  if(m){m.innerHTML=html;m.classList.toggle('bad',!!bad)}
+  if(c){c.innerHTML=html;c.classList.toggle('bad',!!bad)}
+}
+function hlAge(){const s=S.sessT0?Math.max(0,Math.floor((Date.now()-S.sessT0)/1000)):0;
+  return s>=3600?Math.floor(s/3600)+'sa '+(Math.floor(s/60)%60)+'dk':s>=60?Math.floor(s/60)+'dk '+(s%60)+'sn':s+'sn'}
+/* kare tazeliği: JPEG ~10fps → 4 sn sessizlik = akış durdu (H.264'te keyframe arası daha uzun olabilir → 6 sn) */
+function hlStale(){if(!S.stats.last)return false;const lim=(S.codec==='h264')?6000:4000;return Date.now()-S.stats.last>lim}
+function fmtErr(s){const t=String(s||'');return t.length>42?t.slice(0,40)+'…':t}
+function hlRender(){
+  if(!S.authed){hlSet('● '+(S.lastErr?'son: '+fmtErr(S.lastErr):'bağlı değil')+' · token '+(tokenOf()?'✓':'yok'),!!S.lastErr);return}
+  const stale=S.screenOn&&hlStale();
+  const yeni=S.stats.frames-(S.statsSeen||0);
+  hlSet('● '+hlAge()+(S.latency?' · '+S.latency+'ms':S.pingStart?' · ölçülüyor':'')+
+    (S.screenOn?' · kare '+(stale?'<b>DURDU!</b>':(yeni>0?yeni+' yeni':'akıyor')):'')+
+    ' · token ✓'+(S.lastErr?' · son: '+fmtErr(S.lastErr):''),!!stale);
+}
+setInterval(()=>{try{hlRender()}catch(_){}},1000);
+function noteErr(s){if(!s)return;S.lastErr=fmtErr(s);try{hlRender()}catch(_){}}
 
 /* aday listesi (öncelik sırası): son çalışan → tailnet → tünel → kayıtlı → LAN */
 function candidateAddrs(extra){
@@ -962,6 +1000,7 @@ function connectWS(addrOverride){
   ws.onclose=(ev)=>{
     stopPing();stopStats();
     releaseWake();
+    noteErr('kopma kod '+((ev&&ev.code)||0)+((ev&&ev.reason)?(' '+ev.reason):'')); // gösterge + TANI'ya düşer
     if(S.gaveUp)return;
     S.authed=false;
     S.audioPlaying=false;S.nextAt=0;S.audioQ=[];
@@ -971,6 +1010,7 @@ function connectWS(addrOverride){
       // ana ekran: üstel geri çekilme (2s → 15s) + her 2 kopmada adresleri YENİDEN YOKLA
       const d=Math.min(15000,2000*Math.pow(2,S.rcTries++));
       toast('bağlantı koptu, '+Math.round(d/1000)+' sn sonra yeniden…');
+      try{hlRender()}catch(_){}
       if(S.rcTries>=2){
         diag('ana ekran kopma #'+S.rcTries+' → adresler yeniden yoklanacak');
         S.rcTries=0;
@@ -981,6 +1021,7 @@ function connectWS(addrOverride){
     }else{
       // bağlanma ekranı: sessiz çıkmaz sokak YOK — nedeni bulunur, gerekirse yeniden eşleşilir
       diag('bağlantı kurulamadı (kod '+((ev&&ev.code)||0)+') → onarım akışı');
+      try{hlRender()}catch(_){}
       setStatus('bağlantı kurulamadı — onarılıyor…',1);
       const cd=Math.min(15000,600+(S.repairFails||0)*1500);  // artan bekleme (sıkı döngü yok)
       S.reconnectT=setTimeout(()=>repairFlow(),cd);
@@ -1289,6 +1330,7 @@ function handleMsg(m){
   switch(m.t){
     case 'ready':{
       S.authed=true;S.pcName=m.device||'PC';S.rcTries=0;
+      S.sessT0=Date.now();S.lastErr='';S.statsSeen=S.stats.frames; // göstergenin oturum yaşı + kare referansı
       diag('oturum hazır ✓ '+(m.device||'PC')+' v'+(m.v||'?'));
       setTimeout(()=>pushDiag(),1500); // teşhis satırları PC loguna düşsün (uzaktan teşhis)
       $('pc-name').textContent=S.pcName;$('d-name').textContent=S.pcName;
@@ -1298,7 +1340,7 @@ function handleMsg(m){
       toast('bağlandı: '+S.pcName);vibrate(30);
       if(load('audio',0))setAudio(true);
       break;
-    }      case 'pong':{S.latency=Math.round(performance.now()-S.pingStart);$('btn-lat').textContent=S.latency+'ms';$('d-lat').textContent=S.latency+'ms';
+    }      case 'pong':{S.lastErr='';S.latency=Math.round(performance.now()-S.pingStart);$('btn-lat').textContent=S.latency+'ms';$('d-lat').textContent=S.latency+'ms';
         // otomatik kalite: ortalama gecikme >450ms ise çözünürlüğü bir kademe düşür (60 sn bekleme)
         S.latWin=S.latWin||[];S.latWin.push(S.latency);if(S.latWin.length>5)S.latWin.shift();
         if(S.screenOn&&S.latWin.length>=5){const avg=S.latWin.reduce((a,b)=>a+b,0)/5;const now=Date.now();
@@ -1556,6 +1598,7 @@ function handleFrame(plain){ // plain = jpeg
 /* ---- istatistik ortak ---- */
 function drawStats(len){S.stats.frames++;S.stats.bytes+=len}
 function statsTick(){
+  if(S.authed&&!(S.statsSeen>0))S.statsSeen=S.stats.frames; // ilk kare referansı (gösterge)
   const now=Date.now();
   if(S.stats.last&&now-S.stats.last>1000){
     const kbps=Math.round(S.stats.bytes*8/1000/((now-S.stats.last)/1000));
@@ -1591,6 +1634,7 @@ async function setupVdec(){
 }
 function handleFrame264(meta,p){
   drawStats(p.length);
+  if(S.authed)S.statsSeen=(S.statsSeen||0)+1; // H.264 karesi de "taze" sayılır
   if(!S.vdec){
     if(S.vdecBusy||!meta.key)return; // konfigürasyon sürüyor / ilk keyframe bekleniyor
     setupVdec().then(ok=>{if(ok)handleFrame264(meta,p)});
